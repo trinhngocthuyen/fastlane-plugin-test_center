@@ -3,6 +3,8 @@ module TestCenter
     require 'fastlane_core/ui/ui.rb'
     require 'plist'
     require 'json'
+    require 'pry-byebug'
+
     class CorrectingScanHelper
       attr_reader :retry_total_count
 
@@ -53,7 +55,7 @@ module TestCenter
         output_directory = @output_directory
         testable_tests = @test_collector.testables_tests[testable]
         if @batch_count > 1 || @testables_count > 1
-          current_batch = 1
+          current_batch = 0
           testable_tests.each_slice((testable_tests.length / @batch_count.to_f).round).to_a.each do |tests_batch|
             if @testables_count > 1
               output_directory = File.join(@output_directory, "results-#{testable}")
@@ -63,18 +65,22 @@ module TestCenter
               FastlaneCore::UI.message("Clearing out previous test_result bundles in #{output_directory}")
               FileUtils.rm_rf(Dir.glob("#{output_directory}/*.test_result"))
             end
-
-            tests_passed = correcting_scan(
-              {
-                only_testing: tests_batch,
-                output_directory: output_directory
-              },
-              current_batch,
-              reportnamer
-            ) && tests_passed
             current_batch += 1
+            fork do
+              @scan_options[:device] = "iPhone 5s-#{current_batch} (11.1)"
+              tests_passed = correcting_scan(
+                {
+                  only_testing: tests_batch,
+                  output_directory: output_directory
+                },
+                current_batch,
+                reportnamer
+              ) && tests_passed
+              exit(true)
+            end
             reportnamer.increment
           end
+          Process.waitall
         else
           options = {
             output_directory: output_directory,
@@ -197,7 +203,7 @@ module TestCenter
             Fastlane::Actions::ScanAction.available_options,
             scan_options.merge(reportnamer.scan_options)
           )
-          quit_simulators
+          # quit_simulators
           if reportnamer.includes_json?
             ENV['XCPRETTY_JSON_FILE_OUTPUT'] = File.join(
               scan_options[:output_directory],
