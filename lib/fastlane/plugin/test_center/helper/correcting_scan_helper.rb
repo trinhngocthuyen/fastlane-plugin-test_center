@@ -56,17 +56,23 @@ module TestCenter
         testable_tests = @test_collector.testables_tests[testable]
         if @batch_count > 1 || @testables_count > 1
           current_batch = 0
+          fork_pipes = []
           testable_tests.each_slice((testable_tests.length / @batch_count.to_f).round).to_a.each do |tests_batch|
             if @testables_count > 1
               output_directory = File.join(@output_directory, "results-#{testable}")
             end
-            FastlaneCore::UI.header("Starting test run on testable '#{testable}'")
             if @scan_options[:result_bundle]
               FastlaneCore::UI.message("Clearing out previous test_result bundles in #{output_directory}")
               FileUtils.rm_rf(Dir.glob("#{output_directory}/*.test_result"))
             end
             current_batch += 1
+            rd, wr = IO.pipe
+            fork_pipes << [rd, wr]
             fork do
+              FastlaneCore::UI.header("Starting test run on testable '#{testable}'")
+              rd.close
+              $stdout.reopen(wr)
+              $stderr.reopen(wr)
               @scan_options[:device] = "iPhone 5s-#{current_batch} (11.1)"
               tests_passed = correcting_scan(
                 {
@@ -78,9 +84,17 @@ module TestCenter
               ) && tests_passed
               exit(true)
             end
+            wr.close
             reportnamer.increment
           end
           Process.waitall
+          puts '=' * 80
+          fork_pipes.each do |batch_pipes|
+            puts '-' * 80
+
+            puts batch_pipes[0].read
+          end
+          puts '=' * 80
         else
           options = {
             output_directory: output_directory,
