@@ -225,11 +225,15 @@ module TestCenter
             )
           end
           Fastlane::Actions::ScanAction.run(config)
+          simulator_ids = simulator_ids_from_destination(config[:destination])
+          simulator_ids.each { |simulator_id| FastlaneCore::Simulator.reset(udid: simulator_id) }
           @testrun_completed_block && @testrun_completed_block.call(
             testrun_info(batch, try_count, reportnamer, scan_options[:output_directory])
           )
           tests_passed = true
         rescue FastlaneCore::Interface::FastlaneTestFailure => e
+          simulator_ids = simulator_ids_from_destination(config[:destination])
+          simulator_ids.each { |simulator_id| FastlaneCore::Simulator.reset(udid: simulator_id) }
           FastlaneCore::UI.verbose("Scan failed with #{e}")
           info = testrun_info(batch, try_count, reportnamer, scan_options[:output_directory])
           @testrun_completed_block && @testrun_completed_block.call(
@@ -254,6 +258,19 @@ module TestCenter
           ENV['XCPRETTY_JSON_FILE_OUTPUT'] = xcpretty_json_file_output
         end
         tests_passed
+      end
+
+      def simulator_ids_from_destination(destinations)
+        simulator_ids = []
+        destinations.each do |destination|
+          destination.split(',').each do |destination_pair|
+            key, value = destination_pair.split('=')
+            if key == 'id'
+              simulator_ids << value
+            end
+          end
+        end
+        simulator_ids
       end
 
       def testrun_info(batch, try_count, reportnamer, output_directory)
