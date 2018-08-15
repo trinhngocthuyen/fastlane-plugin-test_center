@@ -163,6 +163,13 @@ module Fastlane
             default_value: "html,junit"
           ),
           FastlaneCore::ConfigItem.new(
+            key: :parallelize,
+            description: 'Run each batch of tests and/or each test target in parallel on its own Simulator',
+            optional: true,
+            is_string: false,
+            default_value: false
+          ),
+          FastlaneCore::ConfigItem.new(
             key: :testrun_completed_block,
             description: 'A block invoked each time a test run completes',
             optional: true,

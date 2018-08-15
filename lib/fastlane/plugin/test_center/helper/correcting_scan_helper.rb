@@ -17,6 +17,8 @@ module TestCenter
         @given_custom_report_file_name = multi_scan_options[:custom_report_file_name]
         @given_output_types = multi_scan_options[:output_types]
         @given_output_files = multi_scan_options[:output_files]
+        @parallelize = multi_scan_options[:parallelize]
+        @fork_pipes = []
         @scan_options = multi_scan_options.reject do |option, _|
           %i[
             output_directory
@@ -56,7 +58,6 @@ module TestCenter
         testable_tests = @test_collector.testables_tests[testable]
         if @batch_count > 1 || @testables_count > 1
           current_batch = 0
-          fork_pipes = []
           testable_tests.each_slice((testable_tests.length / @batch_count.to_f).round).to_a.each do |tests_batch|
             if @testables_count > 1
               output_directory = File.join(@output_directory, "results-#{testable}")
@@ -66,14 +67,9 @@ module TestCenter
               FileUtils.rm_rf(Dir.glob("#{output_directory}/*.test_result"))
             end
             current_batch += 1
-            rd, wr = IO.pipe
-            fork_pipes << [rd, wr]
-            fork do
+            
+            batch_context do
               FastlaneCore::UI.header("Starting test run on testable '#{testable}'")
-              rd.close
-              $stdout.reopen(wr)
-              $stderr.reopen(wr)
-              @scan_options[:device] = "iPhone 5s-#{current_batch} (11.1)"
               tests_passed = correcting_scan(
                 {
                   only_testing: tests_batch,
@@ -84,17 +80,9 @@ module TestCenter
               ) && tests_passed
               exit(true)
             end
-            wr.close
             reportnamer.increment
           end
-          Process.waitall
-          puts '=' * 80
-          fork_pipes.each do |batch_pipes|
-            puts '-' * 80
-
-            puts batch_pipes[0].read
-          end
-          puts '=' * 80
+          batch_complete
         else
           options = {
             output_directory: output_directory,
@@ -104,6 +92,35 @@ module TestCenter
         end
         collate_reports(output_directory, reportnamer)
         tests_passed
+      end
+
+      def batch_context(&block)
+        if @parallelize
+          rd, wr = IO.pipe
+          @fork_pipes << [rd, wr]
+          fork do
+            rd.close
+            $stdout.reopen(wr)
+            $stderr.reopen(wr)
+            @scan_options[:device] = "iPhone 5s-#{current_batch} (11.1)"
+
+            block
+            wr.close
+          end
+        else
+          block
+        end
+      end
+
+      def batch_complete
+        Process.waitall
+        puts '=' * 80
+        fork_pipes.each do |batch_pipes|
+          puts '-' * 80
+
+          puts batch_pipes[0].read
+        end
+        puts '=' * 80
       end
 
       def test_result_bundlepaths(output_directory, reportnamer)
