@@ -14,3 +14,4 @@ reports/
 **/test_output/**/report*.xml
 **/test_output/**/report*.junit
 **/test_output/**/*.test_result/
+fastlane/report.xml
