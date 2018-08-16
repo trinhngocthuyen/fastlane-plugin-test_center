@@ -17,6 +17,7 @@ lane :parallel do
     scheme: 'AtomicBoy',
     try_count: 3,
     batch_count: 2,
+    parallelize: true,
     fail_build: false
   )
 end

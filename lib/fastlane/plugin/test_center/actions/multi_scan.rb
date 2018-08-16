@@ -10,7 +10,7 @@ module Fastlane
       def self.run(params)
         unless Helper.test?
           FastlaneCore::PrintTable.print_values(
-            config: params._values.select { |k, _| %i[try_count batch_count fail_build].include?(k) },
+            config: params._values.select { |k, _| %i[try_count batch_count fail_build parallelize].include?(k) },
             title: "Summary for multi_scan (test_center v#{Fastlane::TestCenter::VERSION})"
           )
         end
@@ -84,6 +84,7 @@ module Fastlane
         options_to_remove = %i[
           try_count
           batch_count
+          parallelize
           testrun_completed_block
           test_without_building
           output_types

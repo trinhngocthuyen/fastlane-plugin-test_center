@@ -27,6 +27,7 @@ module TestCenter
             clean
             try_count
             batch_count
+            parallelize
             custom_report_file_name
             fail_build
             testrun_completed_block
@@ -67,8 +68,8 @@ module TestCenter
               FileUtils.rm_rf(Dir.glob("#{output_directory}/*.test_result"))
             end
             current_batch += 1
-            
-            batch_context do
+
+            batch_context(current_batch) do
               FastlaneCore::UI.header("Starting test run on testable '#{testable}'")
               tests_passed = correcting_scan(
                 {
@@ -78,7 +79,6 @@ module TestCenter
                 current_batch,
                 reportnamer
               ) && tests_passed
-              exit(true)
             end
             reportnamer.increment
           end
@@ -94,7 +94,7 @@ module TestCenter
         tests_passed
       end
 
-      def batch_context(&block)
+      def batch_context(current_batch)
         if @parallelize
           rd, wr = IO.pipe
           @fork_pipes << [rd, wr]
@@ -103,19 +103,19 @@ module TestCenter
             $stdout.reopen(wr)
             $stderr.reopen(wr)
             @scan_options[:device] = "iPhone 5s-#{current_batch} (11.1)"
-
-            block
+            yield
             wr.close
+            exit(true)
           end
         else
-          block
+          yield
         end
       end
 
       def batch_complete
         Process.waitall
         puts '=' * 80
-        fork_pipes.each do |batch_pipes|
+        @fork_pipes.each do |batch_pipes|
           puts '-' * 80
 
           puts batch_pipes[0].read
