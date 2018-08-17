@@ -96,31 +96,37 @@ module TestCenter
 
       def batch_context(current_batch)
         if @parallelize
-          rd, wr = IO.pipe
-          @fork_pipes << [rd, wr]
+          mainprocess_reader, subprocess_writer = IO.pipe
+          @fork_pipes << [mainprocess_reader, subprocess_writer]
           fork do
-            rd.close
-            $stdout.reopen(wr)
-            $stderr.reopen(wr)
+            mainprocess_reader.close # we are now in the subprocess
+            subprocess_writer.puts "parallelized batch \##{current_batch}"
+            $stdout.reopen(subprocess_writer)
+            $stderr.reopen(subprocess_writer)
             @scan_options[:device] = "iPhone 5s-#{current_batch} (11.1)"
             yield
-            wr.close
             exit(true)
           end
+          subprocess_writer.close # we are now in the parent process
         else
           yield
         end
       end
 
       def batch_complete
-        Process.waitall
-        puts '=' * 80
-        @fork_pipes.each do |batch_pipes|
-          puts '-' * 80
+        if @parallelize
+          FastlaneCore::Helper.show_loading_indicator("Scanning in #{@batch_count} batches")
+          Process.waitall
+          FastlaneCore::Helper.hide_loading_indicator
+          puts '=' * 80
+          @fork_pipes.each do |batch_pipes|
+            mainprocess_reader, = batch_pipes
+            puts '-' * 80
 
-          puts batch_pipes[0].read
+            puts mainprocess_reader.read
+          end
+          puts '=' * 80
         end
-        puts '=' * 80
       end
 
       def test_result_bundlepaths(output_directory, reportnamer)
