@@ -104,6 +104,7 @@ module TestCenter
             $stdout.reopen(subprocess_writer)
             $stderr.reopen(subprocess_writer)
             @scan_options[:device] = "iPhone 5s-#{current_batch} (11.1)"
+            @scan_options[:buildlog_path] = @scan_options[:buildlog_path] + "-#{current_batch}"
             yield
             exit(true)
           end
@@ -277,6 +278,14 @@ module TestCenter
             retry
           end
           tests_passed = false
+        rescue FastlaneCore::Interface::FastlaneBuildFailure => e
+          puts "file at: #{scan_options[:buildlog_path]} ? #{File.exist?(scan_options[:buildlog_path])}"
+          if e.message =~ /.*Early unexpected exit, operation never finished bootstrapping - no restart will be attempted/m
+            puts "Bootstrap Error!"
+          else
+            puts "unknown error! Rescued from exception of type #{e.class}"
+            puts "Exception message: #{e.message}"
+          end
         ensure
           ENV['XCPRETTY_JSON_FILE_OUTPUT'] = xcpretty_json_file_output
         end
