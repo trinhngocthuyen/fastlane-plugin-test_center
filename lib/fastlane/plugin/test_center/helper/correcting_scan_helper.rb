@@ -98,14 +98,21 @@ module TestCenter
         if @parallelize
           mainprocess_reader, subprocess_writer = IO.pipe
           @fork_pipes << [mainprocess_reader, subprocess_writer]
+          children_output_dir = Dir.mktmpdir
+          puts "log files written to #{children_output_dir}"
           fork do
             mainprocess_reader.close # we are now in the subprocess
-            subprocess_writer.puts "parallelized batch \##{current_batch}"
-            $stdout.reopen(subprocess_writer)
-            $stderr.reopen(subprocess_writer)
-            @scan_options[:device] = "iPhone 5s-#{current_batch} (11.1)"
-            @scan_options[:buildlog_path] = @scan_options[:buildlog_path] + "-#{current_batch}"
-            yield
+            subprocess_logfilepath = File.join(children_output_dir, "batchscan_#{current_batch}.log")
+            File.open(subprocess_logfilepath, 'w') do |subprocess_logfile|
+              subprocess_logfile.puts "parallelized batch \##{current_batch}"
+              $stdout.reopen(subprocess_logfile)
+              $stderr.reopen(subprocess_logfile)
+              @scan_options[:device] = "iPhone 5s-#{current_batch} (11.1)"
+              @scan_options[:buildlog_path] = @scan_options[:buildlog_path] + "-#{current_batch}"
+              yield
+              subprocess_logfile.close
+              subprocess_writer.puts = { logfile_path: subprocess_logfilepath }.to_json
+            end
             exit(true)
           end
           subprocess_writer.close # we are now in the parent process
@@ -123,8 +130,12 @@ module TestCenter
           @fork_pipes.each do |batch_pipes|
             mainprocess_reader, = batch_pipes
             puts '-' * 80
-
-            puts mainprocess_reader.read
+            byebug
+            childprocess_output = mainprocess_reader.read
+            childprocess_output_object = JSON.parse(childprocess_output)
+            File.open(childprocess_output_object[:logfile_path], 'r') do |subprocess_logfile|
+              puts subprocess_logfile.read
+            end
           end
           puts '=' * 80
         end
