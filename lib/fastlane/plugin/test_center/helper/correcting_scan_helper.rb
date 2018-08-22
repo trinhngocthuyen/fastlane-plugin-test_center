@@ -82,7 +82,7 @@ module TestCenter
             end
             reportnamer.increment
           end
-          batch_complete
+          tests_passed = batch_complete(tests_passed)
         else
           options = {
             output_directory: output_directory,
@@ -98,14 +98,29 @@ module TestCenter
         if @parallelize
           mainprocess_reader, subprocess_writer = IO.pipe
           @fork_pipes << [mainprocess_reader, subprocess_writer]
+          children_output_dir = Dir.mktmpdir
+          puts "log files written to #{children_output_dir}"
           fork do
             mainprocess_reader.close # we are now in the subprocess
-            subprocess_writer.puts "parallelized batch \##{current_batch}"
-            $stdout.reopen(subprocess_writer)
-            $stderr.reopen(subprocess_writer)
+
+            subprocess_logfilepath = File.join(children_output_dir, "batchscan_#{current_batch}.log")
+            subprocess_logfile = File.open(subprocess_logfilepath, 'w')
+            $stdout.reopen(subprocess_logfile)
+            $stderr.reopen(subprocess_logfile)
             @scan_options[:device] = "iPhone 5s-#{current_batch} (11.1)"
             @scan_options[:buildlog_path] = @scan_options[:buildlog_path] + "-#{current_batch}"
-            yield
+            tests_passed = false
+            begin
+              tests_passed = yield
+            ensure
+              subprocess_output = {
+                'subprocess_logfilepath' => subprocess_logfilepath,
+                'tests_passed' => tests_passed
+              }
+              subprocess_writer.puts subprocess_output.to_json
+              subprocess_writer.flush
+              subprocess_logfile.close
+            end
             exit(true)
           end
           subprocess_writer.close # we are now in the parent process
@@ -114,19 +129,28 @@ module TestCenter
         end
       end
 
-      def batch_complete
+      def batch_complete(tests_passed)
         if @parallelize
           FastlaneCore::Helper.show_loading_indicator("Scanning in #{@batch_count} batches")
           Process.waitall
           FastlaneCore::Helper.hide_loading_indicator
           puts '=' * 80
+          tests_passed = true
           @fork_pipes.each do |batch_pipes|
             mainprocess_reader, = batch_pipes
             puts '-' * 80
-
-            puts mainprocess_reader.read
+            subprocess_output = mainprocess_reader.read
+            unless subprocess_output.empty?
+              subprocess_result = JSON.parse(subprocess_output)
+              subprocess_logfilepath = subprocess_result['subprocess_logfilepath']
+              tests_passed = subprocess_result['tests_passed'] && tests_passed
+              puts File.open(subprocess_logfilepath, 'r').read if File.exist?(subprocess_logfilepath)
+            end
           end
           puts '=' * 80
+          tests_passed
+        else
+          tests_passed
         end
       end
 
