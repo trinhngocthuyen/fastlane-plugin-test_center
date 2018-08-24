@@ -1,5 +1,6 @@
 require_relative 'test_center_utils'
 require 'pry-byebug'
+require 'fastlane/plugin/test_center/helper/simulator_helper' # import the actual plugin
 
 # Retrieves the example code from each action and runs it to ensure that everything
 # is working as intended.
@@ -9,6 +10,15 @@ lane :run_examples do
     eval(example_code_snippet)
     # rubocop:enable Security/Eval
   end
+end
+
+lane :simsim do
+  Scan.project = FastlaneCore::Project.new(
+    project: File.absolute_path('../AtomicBoy/AtomicBoy.xcodeproj')
+  )
+  
+  helper = ::TestCenter::Helper::SimulatorHelper.new(['iPhone 6'], 2)
+  helper.delete_duplicated_simulators
 end
 
 lane :parallel do

@@ -1,32 +1,37 @@
 module TestCenter
   module Helper
-    require 'fastlane/actions/scan'
-    require 'fastlane/snapshot'
+    require 'scan'
     class SimulatorHelper
     
       def initialize(devices, duplicates_to_make)
         @batch_simulators = []
+        
         if devices.count > 0
-          simulators = Scan.detect_simulator(devices, '', '', '', nil)
-          (1..duplicates_to_make).each do |index|
+          simulators = Scan::DetectValues.detect_simulator(devices, '', '', '', nil)
+          
+          (0...duplicates_to_make).each do |index|
             @batch_simulators << []
             simulators.each do |requested_simulator|
-              @batch_simulators[index] << "#{requested_simulator.name}-multiscan-#{index} (#{requested_simulator.os_version})"
-              Snapshot::ResetSimulators.create(requested_simulator.os_type, requested_simulator.os_version, "#{requested_simulator.name}-multiscan-#{index}")
+              
+              udid = `xcrun simctl clone #{requested_simulator.udid} "#{requested_simulator.name}-multiscan-#{index + 1}"`.chomp
+              @batch_simulators[index] << {
+                name: "#{requested_simulator.name}-multiscan-#{index + 1}",
+                udid: udid
+              }
             end
           end
         end
       end
 
       def scan_options_for_batch(batch)
-        @batch_simulators[batch].join(',')
+        @batch_simulators[batch].map { |record| record[:name] }.join(',')
       end
 
       def delete_duplicated_simulators
         @batch_simulators.each do |simulators|
+          byebug
           simulators.each do |simulator|
-            device = FastlaneCore::DeviceManager::Device.new(simulator)
-            device.delete
+            `xcrun simctl delete #{simulator[:udid]}`
           end
         end
       end
