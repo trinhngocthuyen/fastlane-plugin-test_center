@@ -1,6 +1,8 @@
 module TestCenter
   module Helper
     require 'fastlane_core/ui/ui.rb'
+    require_relative 'simulator_helper'
+
     require 'plist'
     require 'json'
     require 'pry-byebug'
@@ -42,10 +44,26 @@ module TestCenter
       def scan
         tests_passed = true
         @testables_count = @test_collector.testables.size
-        @test_collector.testables.each do |testable|
-          tests_passed = scan_testable(testable) && tests_passed
+        @parallelize_simulators = []
+        begin
+          (0...@batch_count).each { |batch| @parallelize_simulators << simulators_for_batch(batch) }
+          @test_collector.testables.each do |testable|
+            tests_passed = scan_testable(testable) && tests_passed
+          end
+        ensure
+          @parallelize_simulators.flatten.each(&:delete)
         end
         tests_passed
+      end
+
+      def simulators_for_batch(batch)
+        devices = @scan_options[:devices] || Array(@scan_options[:device])
+        if devices.count > 0
+          simulators = Scan::DetectValues.detect_simulator(devices, '', '', '', nil)
+        else
+          simulators = Scan::DetectValues.detect_simulator(devices, 'iOS', 'IPHONEOS_DEPLOYMENT_TARGET', 'iPhone 5s', nil)
+        end
+        simulators.map { |simulator| simulator.clone_for_batch(batch) }
       end
 
       def scan_testable(testable)
@@ -67,9 +85,13 @@ module TestCenter
               FastlaneCore::UI.message("Clearing out previous test_result bundles in #{output_directory}")
               FileUtils.rm_rf(Dir.glob("#{output_directory}/*.test_result"))
             end
+            byebug
+            @scan_options[:devices] = @parallelize_simulators[current_batch].map { |simulator| simulator.name }
             current_batch += 1
 
             batch_context(current_batch) do
+              @scan_options[:device] = nil
+              # @scan_options[:devices] = @parallelize_simulators(current_batch).map { |simulator| simulator.name }
               FastlaneCore::UI.header("Starting test run on testable '#{testable}'")
               tests_passed = correcting_scan(
                 {

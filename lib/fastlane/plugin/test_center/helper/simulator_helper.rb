@@ -1,12 +1,13 @@
+
 module FastlaneCore
   class DeviceManager
     class Device
-      def clone
+      def clone_for_batch(batch)
         raise 'Can only clone iOS Simulators' unless self.is_simulator
 
         Device.new(
-          name: "#{self.name}-multi_scan",
-          udid: `xcrun simctl clone #{self.udid} '#{self.name}-multi_scan'`.chomp,
+          name: "#{self.name}-multi_scan-#{batch}",
+          udid: `xcrun simctl clone #{self.udid} '#{self.name}-multi_scan-#{batch}'`.chomp,
           os_type: self.os_type,
           os_version: self.os_version,
           state: self.state,
