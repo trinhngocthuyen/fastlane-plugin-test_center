@@ -1,3 +1,22 @@
+module FastlaneCore
+  class DeviceManager
+    class Device
+      def clone
+        raise 'Can only clone iOS Simulators' unless self.is_simulator
+
+        Device.new(
+          name: "#{self.name}-multi_scan",
+          udid: `xcrun simctl clone #{self.udid} '#{self.name}-multi_scan'`.chomp,
+          os_type: self.os_type,
+          os_version: self.os_version,
+          state: self.state,
+          is_simulator: self.is_simulator
+        )
+      end
+    end
+  end
+end
+
 module TestCenter
   module Helper
     require 'scan'
@@ -12,12 +31,7 @@ module TestCenter
           (0...duplicates_to_make).each do |index|
             @batch_simulators << []
             simulators.each do |requested_simulator|
-              
-              udid = `xcrun simctl clone #{requested_simulator.udid} "#{requested_simulator.name}-multiscan-#{index + 1}"`.chomp
-              @batch_simulators[index] << {
-                name: "#{requested_simulator.name}-multiscan-#{index + 1}",
-                udid: udid
-              }
+              @batch_simulators[index] << requested_simulator.clone
             end
           end
         end
@@ -31,7 +45,7 @@ module TestCenter
         @batch_simulators.each do |simulators|
           byebug
           simulators.each do |simulator|
-            `xcrun simctl delete #{simulator[:udid]}`
+            simulator.delete
           end
         end
       end
