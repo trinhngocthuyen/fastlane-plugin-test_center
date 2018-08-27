@@ -46,14 +46,79 @@ module TestCenter
         @testables_count = @test_collector.testables.size
         @parallelize_simulators = []
         begin
-          (0...@batch_count).each { |batch| @parallelize_simulators << simulators_for_batch(batch) }
-          @test_collector.testables.each do |testable|
-            tests_passed = scan_testable(testable) && tests_passed
+          scan_setup
+          tests_passed = true
+          reportnamer = ReportNameHelper.new(
+            @given_output_types,
+            @given_output_files,
+            @given_custom_report_file_name
+          )
+          output_directory = @output_directory
+          test_batches.each_with_index do |test_batch, current_batch_index|
+            output_directory = batch_scan_setup(current_batch_index)
+            # TODO: remove this line below and uncomment out the duplicate line in `batch_context`
+            @scan_options[:devices] = @parallelize_simulators[current_batch_index].map { |simulator| simulator.name }
+
+            batch_context(current_batch_index) do
+              @scan_options[:device] = nil
+              # @scan_options[:devices] = @parallelize_simulators(current_batch_index).map { |simulator| simulator.name }
+              FastlaneCore::UI.header("Starting test run on batch '#{current_batch_index}'")
+              tests_passed = correcting_scan(
+                {
+                  only_testing: test_batch,
+                  output_directory: output_directory
+                },
+                current_batch_index,
+                reportnamer
+              ) && tests_passed
+            end
+            reportnamer.increment
+            tests_passed = batch_complete(tests_passed)
           end
         ensure
-          @parallelize_simulators.flatten.each(&:delete)
+          scan_cleanup
         end
         tests_passed
+      end
+
+      def batch_scan_setup(current_batch_index)
+        if @testables_count > 1
+          output_directory = File.join(@output_directory, "results-#{current_batch_index}")
+        end
+        if @scan_options[:result_bundle]
+          FastlaneCore::UI.message("Clearing out previous test_result bundles in #{output_directory}")
+          FileUtils.rm_rf(Dir.glob("#{output_directory}/*.test_result"))
+        end
+        output_directory
+      end
+
+      def scan_setup
+          (0...(@batch_count * @test_collector.testables.size)).each { |batch| @parallelize_simulators << simulators_for_batch(batch) }
+      end
+
+      def scan_cleanup
+        @parallelize_simulators.flatten.each(&:delete)
+        # TODO: iterator over each directory that has a report file and call
+        # collate_reports for each.
+        # collate_reports(@output_directory, reportnamer)
+      end
+
+      def test_batches
+        if @batches.nil?
+          @batches = []
+          @test_collector.testables.each do |testable|
+            testable_tests = @test_collector.testables_tests[testable]
+            if @batch_count > 1
+              testable_tests.each_slice((testable_tests.length / @batch_count.to_f).round).to_a.each do |tests_batch|
+                @batches << testable_tests
+              end
+            else
+              @batches << testable_tests
+            end
+          end
+        end
+
+        @batches
       end
 
       def simulators_for_batch(batch)
@@ -64,56 +129,6 @@ module TestCenter
           simulators = Scan::DetectValues.detect_simulator(devices, 'iOS', 'IPHONEOS_DEPLOYMENT_TARGET', 'iPhone 5s', nil)
         end
         simulators.map { |simulator| simulator.clone_for_batch(batch) }
-      end
-
-      def scan_testable(testable)
-        tests_passed = true
-        reportnamer = ReportNameHelper.new(
-          @given_output_types,
-          @given_output_files,
-          @given_custom_report_file_name
-        )
-        output_directory = @output_directory
-        testable_tests = @test_collector.testables_tests[testable]
-        if @batch_count > 1 || @testables_count > 1
-          current_batch = 0
-          testable_tests.each_slice((testable_tests.length / @batch_count.to_f).round).to_a.each do |tests_batch|
-            if @testables_count > 1
-              output_directory = File.join(@output_directory, "results-#{testable}")
-            end
-            if @scan_options[:result_bundle]
-              FastlaneCore::UI.message("Clearing out previous test_result bundles in #{output_directory}")
-              FileUtils.rm_rf(Dir.glob("#{output_directory}/*.test_result"))
-            end
-            byebug
-            @scan_options[:devices] = @parallelize_simulators[current_batch].map { |simulator| simulator.name }
-            current_batch += 1
-
-            batch_context(current_batch) do
-              @scan_options[:device] = nil
-              # @scan_options[:devices] = @parallelize_simulators(current_batch).map { |simulator| simulator.name }
-              FastlaneCore::UI.header("Starting test run on testable '#{testable}'")
-              tests_passed = correcting_scan(
-                {
-                  only_testing: tests_batch,
-                  output_directory: output_directory
-                },
-                current_batch,
-                reportnamer
-              ) && tests_passed
-            end
-            reportnamer.increment
-          end
-          tests_passed = batch_complete(tests_passed)
-        else
-          options = {
-            output_directory: output_directory,
-            only_testing: testable_tests
-          }
-          tests_passed = correcting_scan(options, 1, reportnamer) && tests_passed
-        end
-        collate_reports(output_directory, reportnamer)
-        tests_passed
       end
 
       def batch_context(current_batch)
