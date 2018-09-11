@@ -43,5 +43,19 @@ describe TestCenter::Helper::RetryingScan do
         ['platform=iOS Simulator,id=E697990C-3A83-4C01-83D1-C367011B31EE']
       )
     end
+
+    it 'sends all info after a run of scan' do
+      testrun_completed_block = lambda do |info|
+        expect(info).to 
+      end
+      stitcher = Interstitial.new(
+        output_directory: '.',
+        testrun_completed_block: testrun_completed_block
+      )
+      mock_reportnamer = OpenStruct.new
+      allow(TestCenter::Helper::ReportNameHelper).to receive(:new).and_return(@mock_reportnamer)
+
+      stitcher.send_info(1, 2, mock_reportnamer, '.')
+    end
   end
 end
