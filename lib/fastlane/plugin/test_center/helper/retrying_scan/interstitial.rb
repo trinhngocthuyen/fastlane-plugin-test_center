@@ -5,6 +5,7 @@ module TestCenter
         def initialize(options)
           @create_test_result_bundle = options[:result_bundle]
           @output_directory = options[:output_directory]
+          @testrun_completed_block = options[:testrun_completed_block]
           before_all
         end
 
