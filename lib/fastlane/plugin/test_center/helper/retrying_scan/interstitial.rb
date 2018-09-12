@@ -35,6 +35,18 @@ module TestCenter
             simulator.reset if simulator_ids_to_reset.include?(simulator.udid)
           end
         end
+
+        def send_info(batch, try_count, reportnamer, output_directory)
+          report_filepath = File.join(output_directory, reportnamer.junit_last_reportname)
+
+          @testrun_completed_block && @testrun_completed_block.call({
+            failed: [], # junit_results[:failed],
+            passing: [], # junit_results[:passing],
+            batch: batch,
+            try_count: try_count,
+            report_filepath: report_filepath
+          })
+        end
       end
     end
   end

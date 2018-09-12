@@ -45,16 +45,20 @@ describe TestCenter::Helper::RetryingScan do
     end
 
     it 'sends all info after a run of scan' do
-      testrun_completed_block = lambda do |info|
-        expect(info).to 
-      end
+      testrun_completed_block = lambda { |info| true }
+      expect(testrun_completed_block).to receive(:call).with({
+        failed: [], # junit_results[:failed],
+        passing: [], # junit_results[:passing],
+        batch: 1,
+        try_count: 2,
+        report_filepath: './relative_path/to/last_produced_junit.xml'
+      })
       stitcher = Interstitial.new(
         output_directory: '.',
         testrun_completed_block: testrun_completed_block
       )
       mock_reportnamer = OpenStruct.new
-      allow(TestCenter::Helper::ReportNameHelper).to receive(:new).and_return(@mock_reportnamer)
-
+      allow(mock_reportnamer).to receive(:junit_last_reportname).and_return('relative_path/to/last_produced_junit.xml')
       stitcher.send_info(1, 2, mock_reportnamer, '.')
     end
   end
