@@ -1,5 +1,9 @@
 describe TestCenter::Helper::RetryingScan do
   describe 'interstitial', interstitial: true do
+    before(:each) do
+      allow(File).to receive(:exist?).and_call_original
+    end
+
     Interstitial = TestCenter::Helper::RetryingScan::Interstitial
     
     it 'clears out `test_result` bundles when created' do
@@ -47,8 +51,8 @@ describe TestCenter::Helper::RetryingScan do
     it 'sends all info after a run of scan' do
       testrun_completed_block = lambda { |info| true }
       expect(testrun_completed_block).to receive(:call).with({
-        failed: [], # junit_results[:failed],
-        passing: [], # junit_results[:passing],
+        failed: ['BagOfTests/CoinTossingUITests/testResultIsTails'],
+        passing: ['BagOfTests/CoinTossingUITests/testResultIsHeads'],
         batch: 1,
         try_count: 2,
         report_filepath: './relative_path/to/last_produced_junit.xml'
@@ -59,6 +63,41 @@ describe TestCenter::Helper::RetryingScan do
       )
       mock_reportnamer = OpenStruct.new
       allow(mock_reportnamer).to receive(:junit_last_reportname).and_return('relative_path/to/last_produced_junit.xml')
+      allow(File).to receive(:exist?).with(%r{.*relative_path/to/last_produced_junit.xml}).and_return(true)
+      allow(Fastlane::Actions::TestsFromJunitAction).to receive(:run).and_return(
+        {
+          failed: ['BagOfTests/CoinTossingUITests/testResultIsTails'],
+          passing: ['BagOfTests/CoinTossingUITests/testResultIsHeads']
+        }
+      )
+      stitcher.send_info(1, 2, mock_reportnamer, '.')
+    end
+
+    it 'sends all info and the html report file path after a run of scan' do
+      testrun_completed_block = lambda { |info| true }
+      expect(testrun_completed_block).to receive(:call).with({
+        failed: ['BagOfTests/CoinTossingUITests/testResultIsTails'],
+        passing: ['BagOfTests/CoinTossingUITests/testResultIsHeads'],
+        batch: 1,
+        try_count: 2,
+        report_filepath: './relative_path/to/last_produced_junit.xml',
+        html_report_filepath: './relative_path/to/last_produced_html.html'
+      })
+      stitcher = Interstitial.new(
+        output_directory: '.',
+        testrun_completed_block: testrun_completed_block
+      )
+      mock_reportnamer = OpenStruct.new
+      allow(mock_reportnamer).to receive(:junit_last_reportname).and_return('relative_path/to/last_produced_junit.xml')
+      allow(mock_reportnamer).to receive(:includes_html?).and_return(true)
+      allow(mock_reportnamer).to receive(:html_last_reportname).and_return('relative_path/to/last_produced_html.html')
+      allow(File).to receive(:exist?).with(%r{.*relative_path/to/last_produced_junit.xml}).and_return(true)
+      allow(Fastlane::Actions::TestsFromJunitAction).to receive(:run).and_return(
+        {
+          failed: ['BagOfTests/CoinTossingUITests/testResultIsTails'],
+          passing: ['BagOfTests/CoinTossingUITests/testResultIsHeads']
+        }
+      )
       stitcher.send_info(1, 2, mock_reportnamer, '.')
     end
   end

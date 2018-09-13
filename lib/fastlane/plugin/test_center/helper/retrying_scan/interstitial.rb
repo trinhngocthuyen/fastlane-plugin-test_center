@@ -40,13 +40,27 @@ module TestCenter
         def send_info(batch, try_count, reportnamer, output_directory)
           report_filepath = File.join(output_directory, reportnamer.junit_last_reportname)
 
-          @testrun_completed_block && @testrun_completed_block.call({
-            failed: [], # junit_results[:failed],
-            passing: [], # junit_results[:passing],
+          config = FastlaneCore::Configuration.create(
+            Fastlane::Actions::TestsFromJunitAction.available_options,
+            {
+              junit: File.absolute_path(report_filepath)
+            }
+          )
+          junit_results = Fastlane::Actions::TestsFromJunitAction.run(config)
+          info = {
+            failed: junit_results[:failed],
+            passing: junit_results[:passing],
             batch: batch,
             try_count: try_count,
             report_filepath: report_filepath
-          })
+          }
+
+          if reportnamer.includes_html?
+            html_report_filepath = File.join(output_directory, reportnamer.html_last_reportname)
+            info[:html_report_filepath] = html_report_filepath
+          end
+
+          @testrun_completed_block && @testrun_completed_block.call(info)
         end
       end
     end
