@@ -128,5 +128,45 @@ describe TestCenter::Helper::RetryingScan do
       )
       stitcher.send_info(1, 2, mock_reportnamer, '.')
     end
+
+    it 'sends all info and the test result bundlepath after a run of scan' do
+      testrun_completed_block = lambda { |info| true }
+      expect(testrun_completed_block).to receive(:call).with({
+        failed: ['BagOfTests/CoinTossingUITests/testResultIsTails'],
+        passing: ['BagOfTests/CoinTossingUITests/testResultIsHeads'],
+        batch: 1,
+        try_count: 2,
+        report_filepath: './relative_path/to/last_produced_junit.xml',
+        test_result_bundlepath: './AtomicHeart.test_result'
+      })
+      stitcher = Interstitial.new(
+        output_directory: '.',
+        result_bundle: true,
+        scheme: 'AtomicHeart',
+        testrun_completed_block: testrun_completed_block
+      )
+      mock_reportnamer = OpenStruct.new
+      allow(mock_reportnamer).to receive(:report_count).and_return(0)
+      allow(mock_reportnamer).to receive(:junit_last_reportname).and_return('relative_path/to/last_produced_junit.xml')
+      allow(File).to receive(:exist?).with(%r{.*relative_path/to/last_produced_junit.xml}).and_return(true)
+      allow(Fastlane::Actions::TestsFromJunitAction).to receive(:run).and_return(
+        {
+          failed: ['BagOfTests/CoinTossingUITests/testResultIsTails'],
+          passing: ['BagOfTests/CoinTossingUITests/testResultIsHeads']
+        }
+      )
+      stitcher.send_info(1, 2, mock_reportnamer, '.')
+
+      expect(testrun_completed_block).to receive(:call).with({
+        failed: ['BagOfTests/CoinTossingUITests/testResultIsTails'],
+        passing: ['BagOfTests/CoinTossingUITests/testResultIsHeads'],
+        batch: 1,
+        try_count: 2,
+        report_filepath: './relative_path/to/last_produced_junit.xml',
+        test_result_bundlepath: './AtomicHeart_1.test_result'
+      })
+      allow(mock_reportnamer).to receive(:report_count).and_return(1)
+      stitcher.send_info(1, 2, mock_reportnamer, '.')
+    end
   end
 end

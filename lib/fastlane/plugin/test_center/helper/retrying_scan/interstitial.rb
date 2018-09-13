@@ -6,6 +6,8 @@ module TestCenter
           @create_test_result_bundle = options[:result_bundle]
           @output_directory = options[:output_directory]
           @testrun_completed_block = options[:testrun_completed_block]
+          @result_bundle = options[:result_bundle]
+          @scheme = options[:scheme]
           before_all
         end
 
@@ -63,7 +65,12 @@ module TestCenter
             json_report_filepath = File.join(output_directory, reportnamer.json_last_reportname)
             info[:json_report_filepath] = json_report_filepath
           end
-          
+          if @result_bundle
+            test_result_suffix = '.test_result'
+            test_result_suffix.prepend("_#{reportnamer.report_count}") unless reportnamer.report_count.zero?
+            test_result_bundlepath = File.join(output_directory, @scheme) + test_result_suffix
+            info[:test_result_bundlepath] = test_result_bundlepath
+          end
           @testrun_completed_block && @testrun_completed_block.call(info)
         end
       end
