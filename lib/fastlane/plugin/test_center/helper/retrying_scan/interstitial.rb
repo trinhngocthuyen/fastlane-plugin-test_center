@@ -59,7 +59,11 @@ module TestCenter
             html_report_filepath = File.join(output_directory, reportnamer.html_last_reportname)
             info[:html_report_filepath] = html_report_filepath
           end
-
+          if reportnamer.includes_json?
+            json_report_filepath = File.join(output_directory, reportnamer.json_last_reportname)
+            info[:json_report_filepath] = json_report_filepath
+          end
+          
           @testrun_completed_block && @testrun_completed_block.call(info)
         end
       end

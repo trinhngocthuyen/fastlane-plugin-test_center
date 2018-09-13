@@ -100,5 +100,33 @@ describe TestCenter::Helper::RetryingScan do
       )
       stitcher.send_info(1, 2, mock_reportnamer, '.')
     end
+
+    it 'sends all info and the json report file path after a run of scan' do
+      testrun_completed_block = lambda { |info| true }
+      expect(testrun_completed_block).to receive(:call).with({
+        failed: ['BagOfTests/CoinTossingUITests/testResultIsTails'],
+        passing: ['BagOfTests/CoinTossingUITests/testResultIsHeads'],
+        batch: 1,
+        try_count: 2,
+        report_filepath: './relative_path/to/last_produced_junit.xml',
+        json_report_filepath: './relative_path/to/last_produced.json'
+      })
+      stitcher = Interstitial.new(
+        output_directory: '.',
+        testrun_completed_block: testrun_completed_block
+      )
+      mock_reportnamer = OpenStruct.new
+      allow(mock_reportnamer).to receive(:junit_last_reportname).and_return('relative_path/to/last_produced_junit.xml')
+      allow(mock_reportnamer).to receive(:includes_json?).and_return(true)
+      allow(mock_reportnamer).to receive(:json_last_reportname).and_return('relative_path/to/last_produced.json')
+      allow(File).to receive(:exist?).with(%r{.*relative_path/to/last_produced_junit.xml}).and_return(true)
+      allow(Fastlane::Actions::TestsFromJunitAction).to receive(:run).and_return(
+        {
+          failed: ['BagOfTests/CoinTossingUITests/testResultIsTails'],
+          passing: ['BagOfTests/CoinTossingUITests/testResultIsHeads']
+        }
+      )
+      stitcher.send_info(1, 2, mock_reportnamer, '.')
+    end
   end
 end
