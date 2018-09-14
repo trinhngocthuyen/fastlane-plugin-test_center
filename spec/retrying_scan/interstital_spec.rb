@@ -40,12 +40,16 @@ describe TestCenter::Helper::RetryingScan do
           is_simulator: true
         )
       ]
+      allow(Scan).to receive(:config).and_return(
+        {
+          destination: ['platform=iOS Simulator,id=E697990C-3A83-4C01-83D1-C367011B31EE']
+        }
+      )
       allow(FastlaneCore::DeviceManager).to receive(:simulators).and_return(mock_devices)
       expect(mock_devices[0]).to receive(:`).with('xcrun simctl erase E697990C-3A83-4C01-83D1-C367011B31EE')
       expect(mock_devices[1]).not_to receive(:reset)
-      stitcher.reset_simulators(
-        ['platform=iOS Simulator,id=E697990C-3A83-4C01-83D1-C367011B31EE']
-      )
+      expect(stitcher).to receive(:send_info_for_try)
+      stitcher.finish_try(1)
     end
 
     it 'sends all info after a run of scan' do

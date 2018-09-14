@@ -24,7 +24,9 @@ module TestCenter
           FileUtils.rm_rf(preexisting_test_result_bundles)
         end
 
-        def reset_simulators(destinations)
+        def reset_simulators
+          # TODO: determine if :destination actually has the `id` after a test run
+          destinations = Scan.config[:destination]
           simulators = FastlaneCore::DeviceManager.simulators('iOS')
           simulator_ids_to_reset = []
           destinations.each do |destination|
@@ -74,6 +76,12 @@ module TestCenter
           end
           @testrun_completed_block && @testrun_completed_block.call(info)
         end
+
+        def finish_try(try_count)
+          send_info_for_try(try_count)
+          reset_simulators
+        end
+
       end
     end
   end
