@@ -3,7 +3,6 @@ module TestCenter
     module RetryingScan
       class Interstitial
         def initialize(options)
-          @create_test_result_bundle = options[:result_bundle]
           @output_directory = options[:output_directory]
           @testrun_completed_block = options[:testrun_completed_block]
           @result_bundle = options[:result_bundle]
@@ -12,7 +11,7 @@ module TestCenter
         end
 
         def before_all
-          if @create_test_result_bundle
+          if @result_bundle
             remove_preexisting_test_result_bundles
           end
         end
