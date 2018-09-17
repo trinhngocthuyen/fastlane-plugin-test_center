@@ -52,6 +52,14 @@ module TestCenter
         )
         output_directory = @output_directory
         testable_tests = @test_collector.testables_tests[testable]
+        @interstitial = TestCenter::Helper::RetryingScan::Interstitial.new(
+          @scan_options.merge(
+            {
+              output_directory: output_directory,
+              reportnamer: reportnamer
+            }
+          )
+        )
         if @batch_count > 1 || @testables_count > 1
           current_batch = 1
           testable_tests.each_slice((testable_tests.length / @batch_count.to_f).round).to_a.each do |tests_batch|
@@ -59,10 +67,9 @@ module TestCenter
               output_directory = File.join(@output_directory, "results-#{testable}")
             end
             FastlaneCore::UI.header("Starting test run on testable '#{testable}'")
-            if @scan_options[:result_bundle]
-              FastlaneCore::UI.message("Clearing out previous test_result bundles in #{output_directory}")
-              FileUtils.rm_rf(Dir.glob("#{output_directory}/*.test_result"))
-            end
+            @interstitial.batch = current_batch
+            @interstitial.output_directory = output_directory
+            @interstitial.before_all
 
             tests_passed = correcting_scan(
               {
@@ -76,6 +83,7 @@ module TestCenter
             reportnamer.increment
           end
         else
+          @interstitial.before_all
           options = {
             output_directory: output_directory,
             only_testing: testable_tests

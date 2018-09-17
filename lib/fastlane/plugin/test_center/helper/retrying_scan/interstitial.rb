@@ -2,6 +2,10 @@ module TestCenter
   module Helper
     module RetryingScan
       class Interstitial
+
+        attr_writer :output_directory
+        attr_writer :batch
+        
         def initialize(options)
           @output_directory = options[:output_directory]
           @testrun_completed_block = options[:testrun_completed_block]
@@ -25,7 +29,6 @@ module TestCenter
         end
 
         def reset_simulators
-          # TODO: determine if :destination actually has the `id` after a test run
           destinations = Scan.config[:destination]
           simulators = FastlaneCore::DeviceManager.simulators('iOS')
           simulator_ids_to_reset = []
