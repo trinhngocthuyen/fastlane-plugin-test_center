@@ -40,6 +40,7 @@ module TestCenter
         @test_collector.testables.each do |testable|
           tests_passed = scan_testable(testable) && tests_passed
         end
+        @interstitial && @interstitial.after_all
         tests_passed
       end
 
@@ -80,7 +81,6 @@ module TestCenter
               reportnamer
             ) && tests_passed
             current_batch += 1
-            reportnamer.increment
           end
         else
           @interstitial.before_all
@@ -198,7 +198,6 @@ module TestCenter
         scan_options = @scan_options.merge(scan_run_options)
         try_count = 0
         tests_passed = true
-        xcpretty_json_file_output = ENV['XCPRETTY_JSON_FILE_OUTPUT']
         begin
           try_count += 1
           config = FastlaneCore::Configuration.create(
@@ -206,45 +205,25 @@ module TestCenter
             scan_options.merge(reportnamer.scan_options)
           )
           quit_simulators
-          if reportnamer.includes_json?
-            ENV['XCPRETTY_JSON_FILE_OUTPUT'] = File.join(
-              scan_options[:output_directory],
-              reportnamer.json_last_reportname
-            )
-          end
           Fastlane::Actions::ScanAction.run(config)
-          @testrun_completed_block && @testrun_completed_block.call(
-            testrun_info(batch, try_count, reportnamer, scan_options[:output_directory])
-          )
+          @interstitial.finish_try(try_count)
           tests_passed = true
         rescue FastlaneCore::Interface::FastlaneTestFailure => e
           FastlaneCore::UI.verbose("Scan failed with #{e}")
-          info = testrun_info(batch, try_count, reportnamer, scan_options[:output_directory])
-          @testrun_completed_block && @testrun_completed_block.call(
-            info
-          )
           if try_count < @try_count
             @retry_total_count += 1
             scan_options.delete(:code_coverage)
-            scan_options[:only_testing] = info[:failed].map(&:shellescape)
+            scan_options[:only_testing] = failed_tests(reportnamer, scan_options[:output_directory]).map(&:shellescape)
             FastlaneCore::UI.message('Re-running scan on only failed tests')
-            reportnamer.increment
-            if @scan_options[:result_bundle]
-              built_test_result, moved_test_result = test_result_bundlepaths(
-                scan_options[:output_directory], reportnamer
-              )
-              FileUtils.mv(built_test_result, moved_test_result)
-            end
+            @interstitial.finish_try(try_count)
             retry
           end
           tests_passed = false
-        ensure
-          ENV['XCPRETTY_JSON_FILE_OUTPUT'] = xcpretty_json_file_output
         end
         tests_passed
       end
 
-      def testrun_info(batch, try_count, reportnamer, output_directory)
+      def failed_tests(reportnamer, output_directory)
         report_filepath = File.join(output_directory, reportnamer.junit_last_reportname)
         config = FastlaneCore::Configuration.create(
           Fastlane::Actions::TestsFromJunitAction.available_options,
@@ -252,30 +231,7 @@ module TestCenter
             junit: File.absolute_path(report_filepath)
           }
         )
-        junit_results = Fastlane::Actions::TestsFromJunitAction.run(config)
-
-        info = {
-          failed: junit_results[:failed],
-          passing: junit_results[:passing],
-          batch: batch,
-          try_count: try_count,
-          report_filepath: report_filepath
-        }
-        if reportnamer.includes_html?
-          html_report_filepath = File.join(output_directory, reportnamer.html_last_reportname)
-          info[:html_report_filepath] = html_report_filepath
-        end
-        if reportnamer.includes_json?
-          json_report_filepath = File.join(output_directory, reportnamer.json_last_reportname)
-          info[:json_report_filepath] = json_report_filepath
-        end
-        if @scan_options[:result_bundle]
-          test_result_suffix = '.test_result'
-          test_result_suffix.prepend("_#{reportnamer.report_count}") unless reportnamer.report_count.zero?
-          test_result_bundlepath = File.join(output_directory, @scan_options[:scheme]) + test_result_suffix
-          info[:test_result_bundlepath] = test_result_bundlepath
-        end
-        info
+        Fastlane::Actions::TestsFromJunitAction.run(config)[:failed]
       end
 
       def quit_simulators

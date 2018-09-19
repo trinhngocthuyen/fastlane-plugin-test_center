@@ -5,7 +5,7 @@ module TestCenter
 
         attr_writer :output_directory
         attr_writer :batch
-        
+
         def initialize(options)
           @output_directory = options[:output_directory]
           @testrun_completed_block = options[:testrun_completed_block]
@@ -14,18 +14,40 @@ module TestCenter
           @batch = options[:batch]
           @reportnamer = options[:reportnamer]
           before_all
+          
+          @xcpretty_json_file_output = ENV['XCPRETTY_JSON_FILE_OUTPUT']
         end
 
         def before_all
           if @result_bundle
             remove_preexisting_test_result_bundles
           end
+          set_json_env_if_necessary
+        end
+
+        def after_all
+            FastlaneCore::UI.message("resetting JSON ENV var to #{@xcpretty_json_file_output}")
+            ENV['XCPRETTY_JSON_FILE_OUTPUT'] = @xcpretty_json_file_output
         end
 
         def remove_preexisting_test_result_bundles
           glob_pattern = "#{@output_directory}/.*\.test_result"
           preexisting_test_result_bundles = Dir.glob(glob_pattern)
           FileUtils.rm_rf(preexisting_test_result_bundles)
+        end
+
+        def move_test_result_bundle_for_next_run
+          if @result_bundle
+            built_test_result, moved_test_result = test_result_bundlepaths
+            FileUtils.mv(built_test_result, moved_test_result)
+          end
+        end
+
+        def test_result_bundlepaths
+          [
+            File.join(@output_directory, @scheme) + '.test_result',
+            File.join(@output_directory, @scheme) + "_#{@reportnamer.report_count}.test_result"
+          ]
         end
 
         def reset_simulators
@@ -80,9 +102,21 @@ module TestCenter
           @testrun_completed_block && @testrun_completed_block.call(info)
         end
 
+        def set_json_env_if_necessary
+          if @reportnamer.includes_json?
+            ENV['XCPRETTY_JSON_FILE_OUTPUT'] = File.join(
+              @output_directory,
+              @reportnamer.json_last_reportname
+            )
+          end
+        end
+
         def finish_try(try_count)
           send_info_for_try(try_count)
           reset_simulators
+          move_test_result_bundle_for_next_run
+          set_json_env_if_necessary
+          @reportnamer.increment
         end
 
       end
