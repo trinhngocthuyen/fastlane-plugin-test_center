@@ -1,11 +1,13 @@
 describe TestCenter::Helper::RetryingScan do
   describe 'interstitial', interstitial: true do
+    require 'pry-byebug'
+
     before(:each) do
       allow(File).to receive(:exist?).and_call_original
     end
 
     Interstitial = TestCenter::Helper::RetryingScan::Interstitial
-    
+
     it 'clears out `test_result` bundles when created' do
       allow(Dir).to receive(:glob).and_call_original
       allow(FileUtils).to receive(:rm_rf).and_call_original
@@ -14,7 +16,7 @@ describe TestCenter::Helper::RetryingScan do
       expect(FileUtils).to receive(:rm_rf).with(['./AtomicDragon.test_result'])
       Interstitial.new(
         result_bundle: true,
-        output_directory: '.',
+        output_directory: '.'
       )
     end
 
@@ -53,7 +55,7 @@ describe TestCenter::Helper::RetryingScan do
     end
 
     it 'sends all info after a run of scan' do
-      testrun_completed_block = lambda { |info| true }
+      testrun_completed_block = ->(info) { true }
       expect(testrun_completed_block).to receive(:call).with({
         failed: ['BagOfTests/CoinTossingUITests/testResultIsTails'],
         passing: ['BagOfTests/CoinTossingUITests/testResultIsHeads'],
@@ -81,7 +83,7 @@ describe TestCenter::Helper::RetryingScan do
     end
 
     it 'sends all info and the html report file path after a run of scan' do
-      testrun_completed_block = lambda { |info| true }
+      testrun_completed_block = ->(info) { true }
       expect(testrun_completed_block).to receive(:call).with({
         failed: ['BagOfTests/CoinTossingUITests/testResultIsTails'],
         passing: ['BagOfTests/CoinTossingUITests/testResultIsHeads'],
@@ -112,7 +114,7 @@ describe TestCenter::Helper::RetryingScan do
     end
 
     it 'sends all info and the json report file path after a run of scan' do
-      testrun_completed_block = lambda { |info| true }
+      testrun_completed_block = ->(info) { true }
       expect(testrun_completed_block).to receive(:call).with({
         failed: ['BagOfTests/CoinTossingUITests/testResultIsTails'],
         passing: ['BagOfTests/CoinTossingUITests/testResultIsHeads'],
@@ -142,7 +144,7 @@ describe TestCenter::Helper::RetryingScan do
     end
 
     it 'sends all info and the test result bundlepath after a run of scan' do
-      testrun_completed_block = lambda { |info| true }
+      testrun_completed_block = ->(info) { true }
       expect(testrun_completed_block).to receive(:call).with({
         failed: ['BagOfTests/CoinTossingUITests/testResultIsTails'],
         passing: ['BagOfTests/CoinTossingUITests/testResultIsHeads'],
@@ -181,6 +183,29 @@ describe TestCenter::Helper::RetryingScan do
       })
       allow(mock_reportnamer).to receive(:report_count).and_return(1)
       stitcher.send_info_for_try(2)
+    end
+
+    describe 'JSON reports' do
+      before(:each) do
+        @mock_reportnamer = OpenStruct.new
+        allow(@mock_reportnamer).to receive(:junit_last_reportname).and_return('relative_path/to/last_produced_junit.xml')
+        allow(@mock_reportnamer).to receive(:includes_json?).and_return(true)
+        allow(@mock_reportnamer).to receive(:json_last_reportname).and_return('relative_path/to/last_produced_json.json')
+        @json_file_output = 'sillywalk_path/to/monkey_business'
+        allow(ENV).to receive(:[]).and_call_original
+        allow(ENV).to receive(:[]).with('XCPRETTY_JSON_FILE_OUTPUT').and_return(@json_file_output)
+        allow(ENV).to receive(:[]=).and_call_original
+        allow(ENV).to receive(:[]=).with('XCPRETTY_JSON_FILE_OUTPUT') { |k, v| byebug && @json_file_output = v }
+      end
+
+      it 'changes the XCPRETTY_JSON_FILE_OUTPUT env var appropriately' do
+        Interstitial.new(
+          result_bundle: true,
+          output_directory: '.',
+          reportnamer: @mock_reportnamer
+        )
+        expect(@json_file_output).to eq('relative_path/to/last_produced_json.json')
+      end
     end
   end
 end

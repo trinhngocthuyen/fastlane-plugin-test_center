@@ -103,7 +103,7 @@ module TestCenter
         end
 
         def set_json_env_if_necessary
-          if @reportnamer.includes_json?
+          if @reportnamer && @reportnamer.includes_json?
             ENV['XCPRETTY_JSON_FILE_OUTPUT'] = File.join(
               @output_directory,
               @reportnamer.json_last_reportname
@@ -116,7 +116,7 @@ module TestCenter
           reset_simulators
           move_test_result_bundle_for_next_run
           set_json_env_if_necessary
-          @reportnamer.increment
+          @reportnamer && @reportnamer.increment
         end
 
       end
