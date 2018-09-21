@@ -2,6 +2,7 @@ module TestCenter
   module Helper
     module RetryingScan
       class Interstitial
+        require 'pry-byebug'
 
         attr_writer :output_directory
         attr_writer :batch
@@ -13,9 +14,9 @@ module TestCenter
           @scheme = options[:scheme]
           @batch = options[:batch]
           @reportnamer = options[:reportnamer]
-          before_all
-          
           @xcpretty_json_file_output = ENV['XCPRETTY_JSON_FILE_OUTPUT']
+
+          before_all
         end
 
         def before_all
@@ -26,8 +27,8 @@ module TestCenter
         end
 
         def after_all
-            FastlaneCore::UI.message("resetting JSON ENV var to #{@xcpretty_json_file_output}")
-            ENV['XCPRETTY_JSON_FILE_OUTPUT'] = @xcpretty_json_file_output
+          FastlaneCore::UI.message("resetting JSON ENV var to #{@xcpretty_json_file_output}")
+          ENV['XCPRETTY_JSON_FILE_OUTPUT'] = @xcpretty_json_file_output
         end
 
         def remove_preexisting_test_result_bundles
