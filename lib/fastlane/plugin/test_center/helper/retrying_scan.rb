@@ -1,1 +1,2 @@
 require_relative 'retrying_scan/interstitial'
+require_relative 'retrying_scan/report_collator'
