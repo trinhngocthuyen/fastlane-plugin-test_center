@@ -1,5 +1,6 @@
 describe TestCenter::Helper::RetryingScan do
   describe 'report_collator', report_collator: true do
+    require 'pry-byebug'
 
     ReportCollator = TestCenter::Helper::RetryingScan::ReportCollator
 
@@ -15,9 +16,16 @@ describe TestCenter::Helper::RetryingScan do
         reportnamer: @mock_reportnamer
       )
       expect(collator).to receive(:sort_globbed_files).with('./report*.xml').and_return(['report.xml', 'report-1.xml', 'report-2.xml'])
-      expect(collator).to receive(:create_config)
-      expect(Fastlane::Actions::CollateTestResultBundlesAction).to receive(:run) do |config|
-        expect(config._values).to eq(
+      config = OpenStruct.new
+      allow(config).to receive(:_values).and_return(
+        {
+            reports: ['report.xml', 'report-1.xml', 'report-2.xml'],
+            collated_report: 'report.xml'
+          }
+      )
+      expect(collator).to receive(:create_config).and_return(config)
+      expect(Fastlane::Actions::CollateJunitReportsAction).to receive(:run) do |c|
+        expect(c._values).to eq(
           {
             reports: ['report.xml', 'report-1.xml', 'report-2.xml'],
             collated_report: 'report.xml'

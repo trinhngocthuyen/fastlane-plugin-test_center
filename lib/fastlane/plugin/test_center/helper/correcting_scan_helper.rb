@@ -40,27 +40,48 @@ module TestCenter
         @test_collector.testables.each do |testable|
           tests_passed = scan_testable(testable) && tests_passed
         end
-        @interstitial && @interstitial.after_all
+        interstitial.after_all
         tests_passed
       end
 
-      def scan_testable(testable)
-        tests_passed = true
-        reportnamer = ReportNameHelper.new(
+      def reset_reportnamer
+        @reportnamer = ReportNameHelper.new(
           @given_output_types,
           @given_output_files,
           @given_custom_report_file_name
         )
+      end
+
+      def reportnamer
+        if @reportnamer.nil?
+          @reportnamer = ReportNameHelper.new(
+            @given_output_types,
+            @given_output_files,
+            @given_custom_report_file_name
+          )
+        end
+        @reportnamer
+      end
+
+      def interstitial
+        if @interstitial.nil?
+          @interstitial = TestCenter::Helper::RetryingScan::Interstitial.new(
+            @scan_options.merge(
+              {
+                output_directory: @output_directory,
+                reportnamer: reportnamer
+              }
+            )
+          )
+        end
+        @interstitial
+      end
+
+      def scan_testable(testable)
+        tests_passed = true
+        reset_reportnamer
         output_directory = @output_directory
         testable_tests = @test_collector.testables_tests[testable]
-        @interstitial = TestCenter::Helper::RetryingScan::Interstitial.new(
-          @scan_options.merge(
-            {
-              output_directory: output_directory,
-              reportnamer: reportnamer
-            }
-          )
-        )
         if @batch_count > 1 || @testables_count > 1
           current_batch = 1
           testable_tests.each_slice((testable_tests.length / @batch_count.to_f).round).to_a.each do |tests_batch|
@@ -68,9 +89,9 @@ module TestCenter
               output_directory = File.join(@output_directory, "results-#{testable}")
             end
             FastlaneCore::UI.header("Starting test run on testable '#{testable}'")
-            @interstitial.batch = current_batch
-            @interstitial.output_directory = output_directory
-            @interstitial.before_all
+            interstitial.batch = current_batch
+            interstitial.output_directory = output_directory
+            interstitial.before_all
 
             tests_passed = correcting_scan(
               {
@@ -83,7 +104,7 @@ module TestCenter
             current_batch += 1
           end
         else
-          @interstitial.before_all
+          interstitial.before_all
           options = {
             output_directory: output_directory,
             only_testing: testable_tests
@@ -115,11 +136,6 @@ module TestCenter
         if @scan_options[:result_bundle]
           collate_test_result_bundles(output_directory, reportnamer)
         end
-      end
-
-      def passed_test_count_from_summary(summary)
-        /.*Executed (?<test_count>\d+) test, with (?<test_failures>\d+) failure/ =~ summary
-        test_count.to_i - test_failures.to_i
       end
 
       def collate_test_result_bundles(output_directory, reportnamer)
@@ -206,7 +222,7 @@ module TestCenter
           )
           quit_simulators
           Fastlane::Actions::ScanAction.run(config)
-          @interstitial.finish_try(try_count)
+          interstitial.finish_try(try_count)
           tests_passed = true
         rescue FastlaneCore::Interface::FastlaneTestFailure => e
           FastlaneCore::UI.verbose("Scan failed with #{e}")
@@ -215,7 +231,7 @@ module TestCenter
             scan_options.delete(:code_coverage)
             scan_options[:only_testing] = failed_tests(reportnamer, scan_options[:output_directory]).map(&:shellescape)
             FastlaneCore::UI.message('Re-running scan on only failed tests')
-            @interstitial.finish_try(try_count)
+            interstitial.finish_try(try_count)
             retry
           end
           tests_passed = false

@@ -2,6 +2,8 @@ module TestCenter
   module Helper
     module RetryingScan
       class ReportCollator
+
+        CollateJunitReportsAction = Fastlane::Actions::CollateJunitReportsAction
         def initialize(params)
           @output_directory = params[:output_directory]
           @reportnamer = params[:reportnamer]
@@ -15,19 +17,20 @@ module TestCenter
         end
 
         def create_config(klass, options)
-          config = FastlaneCore::Configuration.create(klass.available_options, options)
+          FastlaneCore::Configuration.create(klass.available_options, options)
         end
 
         def collate_junit_reports
           report_files = sort_globbed_files("#{@output_directory}/#{@reportnamer.junit_fileglob}")
           if report_files.size > 1
             config = create_config(
+              CollateJunitReportsAction,
               {
                 reports: report_files,
                 collated_report: File.absolute_path(File.join(@output_directory, @reportnamer.junit_reportname))
               }
             )
-            Fastlane::Actions::CollateJunitReportsAction.run(config)
+            CollateJunitReportsAction.run(config)
           end
         end
       end

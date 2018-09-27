@@ -8,6 +8,9 @@ describe TestCenter do
           @mock_reportnamer = OpenStruct.new
           allow(TestCenter::Helper::ReportNameHelper).to receive(:new).and_return(@mock_reportnamer)
 
+          @mock_interstitcher = OpenStruct.new
+          allow(TestCenter::Helper::RetryingScan::Interstitial).to receive(:new).and_return(@mock_interstitcher)
+
           @mock_testcollector = OpenStruct.new
           allow(TestCenter::Helper::TestCollector).to receive(:new).and_return(@mock_testcollector)
 
@@ -59,20 +62,12 @@ describe TestCenter do
           )
 
           expected_calls = []
-          allow(Dir).to receive(:glob).and_call_original
-          expect(Dir).to receive(:glob).with(/.*\.test_result/) do
-            expected_calls << :glob
-            ['./AtomicDragon.test_result']
-          end
-          allow(FileUtils).to receive(:rm_rf).and_call_original
-          expect(FileUtils).to receive(:rm_rf).with(['./AtomicDragon.test_result']) do
-            expected_calls << :rm_rf
-          end
+          expect(TestCenter::Helper::RetryingScan::Interstitial).to receive(:new).and_return(@mock_interstitcher)
           expect(scanner).to receive(:correcting_scan).twice do
             expected_calls << :correcting_scan
           end
           scanner.scan
-          expect(expected_calls).to eq([:glob, :rm_rf, :correcting_scan, :correcting_scan])
+          expect(expected_calls).to eq([:correcting_scan, :correcting_scan])
         end
 
         it 'scan calls correcting_scan once for one testable' do
@@ -507,7 +502,7 @@ describe TestCenter do
             .ordered
             .once
           expect(scanner).to receive(:collate_reports).twice
-          expect(@mock_reportnamer).to receive(:increment).exactly(4).times
+          expect(@mock_interstitcher).to receive(:before_all).exactly(4).times
           results = scanner.scan
           expect(results).to eq(false)
         end
@@ -517,6 +512,10 @@ describe TestCenter do
         before(:each) do
           allow(Fastlane::Actions).to receive(:sh)
           allow_any_instance_of(CorrectingScanHelper).to receive(:sleep)
+
+          @mock_interstitcher = OpenStruct.new
+          allow(@mock_interstitcher).to receive(:finish_try)
+          allow(TestCenter::Helper::RetryingScan::Interstitial).to receive(:new).and_return(@mock_interstitcher)
 
           @mock_testcollector = OpenStruct.new
           allow(TestCenter::Helper::TestCollector).to receive(:new).and_return(@mock_testcollector)
@@ -538,6 +537,7 @@ describe TestCenter do
                 clean: true,
                 code_coverage: true
               )
+              allow(scanner).to receive(:failed_tests).and_return(['AtomicBoyUITests/AtomicBoyUITests/testExample3'])
               allow(scanner).to receive(:testrun_info).and_return({ failed: [] })
               expect(Fastlane::Actions::ScanAction).to receive(:run).ordered.once do |config|
                 expect(config._values).to have_key(:code_coverage)
@@ -607,11 +607,7 @@ describe TestCenter do
               allow(File).to receive(:exist?).and_call_original
               allow(File).to receive(:exist?).with(%r{.*/report(-[23])?.junit}).and_return(true)
               expected_report_files = ['.*/report.junit', '.*/report-2.junit', '.*/report-3.junit']
-              allow(Fastlane::Actions::TestsFromJunitAction).to receive(:run) do |config|
-                expect(config._values).to have_key(:junit)
-                expect(config._values[:junit]).to match(expected_report_files.shift)
-                { failed: ['BagOfTests/CoinTossingUITests/testResultIsTails'] }
-              end
+              allow(scanner).to receive(:failed_tests).and_return(['BagOfTests/CoinTossingUITests/testResultIsTails'])
               expect(Fastlane::Actions::ScanAction).to receive(:run).ordered.once do |config|
                 expect(config._values).to have_key(:output_files)
                 expect(config._values[:output_files]).to eq('report.html,report.junit')
