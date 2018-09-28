@@ -3,21 +3,16 @@ describe TestCenter::Helper::RetryingScan do
     require 'pry-byebug'
 
     ReportCollator = TestCenter::Helper::RetryingScan::ReportCollator
-
-    before(:each) do
-      @mock_reportnamer = OpenStruct.new
-      allow(@mock_reportnamer).to receive(:junit_fileglob).and_return('report*.xml')
-      allow(@mock_reportnamer).to receive(:html_fileglob).and_return('report*.html')
-      allow(@mock_reportnamer).to receive(:junit_numbered_fileglob).and_return("report-[1-9]*.xml")
-      allow(@mock_reportnamer).to receive(:html_numbered_fileglob).and_return("report-[1-9]*.html")
-      allow(@mock_reportnamer).to receive(:junit_reportname).and_return('report.xml')
-      allow(@mock_reportnamer).to receive(:html_reportname).and_return('report.html')
-    end
+    ReportNameHelper = TestCenter::Helper::ReportNameHelper
 
     it 'collates junit reports correctly' do
+      reportnamer = ReportNameHelper.new(
+        'junit',
+        'report.xml'
+      )
       collator = ReportCollator.new(
         output_directory: '.',
-        reportnamer: @mock_reportnamer
+        reportnamer: reportnamer
       )
       expect(collator).to receive(:sort_globbed_files).with('./report*.xml').and_return(['report.xml', 'report-1.xml', 'report-2.xml'])
       config = OpenStruct.new
@@ -41,9 +36,13 @@ describe TestCenter::Helper::RetryingScan do
     end
 
     it 'collates html reports correctly' do
+      reportnamer = ReportNameHelper.new(
+        'html',
+        'report.html'
+      )
       collator = ReportCollator.new(
         output_directory: '.',
-        reportnamer: @mock_reportnamer
+        reportnamer: reportnamer
       )
       expect(collator).to receive(:sort_globbed_files).with('./report*.html').and_return(['report.html', 'report-1.html', 'report-2.html'])
       config = OpenStruct.new

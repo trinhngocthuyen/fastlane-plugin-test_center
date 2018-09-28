@@ -2,10 +2,9 @@ module TestCenter
   module Helper
     module RetryingScan
       class ReportCollator
-
         CollateJunitReportsAction = Fastlane::Actions::CollateJunitReportsAction
         CollateHtmlReportsAction = Fastlane::Actions::CollateHtmlReportsAction
-        
+
         def initialize(params)
           @output_directory = params[:output_directory]
           @reportnamer = params[:reportnamer]
