@@ -58,7 +58,7 @@ describe TestCenter::Helper::RetryingScan do
 
     it 'resets a simulator between each run' do
       stitcher = Interstitial.new(
-        output_directory: '.',
+        output_directory: '.'
       )
       mock_devices = [
         FastlaneCore::DeviceManager::Device.new(
@@ -238,7 +238,7 @@ describe TestCenter::Helper::RetryingScan do
         end
       end
 
-      it 'changes the XCPRETTY_JSON_FILE_OUTPUT env var appropriately' , json: true do
+      it 'changes the XCPRETTY_JSON_FILE_OUTPUT env var appropriately' do
         Interstitial.new(
           result_bundle: true,
           output_directory: '.',

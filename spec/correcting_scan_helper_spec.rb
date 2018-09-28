@@ -606,23 +606,14 @@ describe TestCenter do
               )
               allow(File).to receive(:exist?).and_call_original
               allow(File).to receive(:exist?).with(%r{.*/report(-[23])?.junit}).and_return(true)
-              expected_report_files = ['.*/report.junit', '.*/report-2.junit', '.*/report-3.junit']
               allow(scanner).to receive(:failed_tests).and_return(['BagOfTests/CoinTossingUITests/testResultIsTails'])
               expect(Fastlane::Actions::ScanAction).to receive(:run).ordered.once do |config|
-                expect(config._values).to have_key(:output_files)
-                expect(config._values[:output_files]).to eq('report.html,report.junit')
                 raise FastlaneCore::Interface::FastlaneTestFailure, 'failed tests'
               end
               expect(Fastlane::Actions::ScanAction).to receive(:run).ordered.once do |config|
-                expect(config._values).to have_key(:output_files)
-                expect(config._values[:output_files]).to eq('report-2.html,report-2.junit')
                 raise FastlaneCore::Interface::FastlaneTestFailure, 'failed tests'
               end
               expect(Fastlane::Actions::ScanAction).to receive(:run).ordered.once do |config|
-                expect(config._values).to have_key(:output_files)
-                expect(config._values[:output_files]).to eq('report-3.html,report-3.junit')
-                expect(config._values).to have_key(:only_testing)
-                expect(config._values[:only_testing]).to eq(['BagOfTests/CoinTossingUITests/testResultIsTails'])
                 raise FastlaneCore::Interface::FastlaneTestFailure, 'failed tests'
               end
               result = scanner.correcting_scan(
@@ -634,170 +625,6 @@ describe TestCenter do
               )
               expect(scanner.retry_total_count).to eq(2)
               expect(result).to eq(false)
-            end
-
-            it 'calls scan two times when there is a failure, and for the failure calls :testrun_completed_block' do
-              actualtestrun_completed_block_infos = []
-              scanner = CorrectingScanHelper.new(
-                xctestrun: 'path/to/fake.xctestrun',
-                output_directory: '.',
-                try_count: 2,
-                testrun_completed_block: lambda { |info|
-                  actualtestrun_completed_block_infos << info
-                },
-                result_bundle: true,
-                scheme: 'AtomicDog'
-              )
-              allow(File).to receive(:exist?).and_call_original
-              allow(File).to receive(:exist?).with(%r{.*/report(-2)?.junit}).and_return(true)
-              allow(Dir).to receive(:exist?).with(%r{.*/AtomicDog(-2)?.test_result}).and_return(true)
-              allow(FileUtils).to receive(:mv).with(
-                './AtomicDog.test_result',
-                './AtomicDog_1.test_result'
-              )
-              expected_report_files = ['.*/report.junit', '.*/report-2.junit']
-              junit_results = [
-                {
-                  failed: ['BagOfTests/CoinTossingUITests/testResultIsTails'],
-                  passing: ['BagOfTests/CoinTossingUITests/testResultIsHeads']
-                },
-                {
-                  failed: [],
-                  passing: ['BagOfTests/CoinTossingUITests/testResultIsTails']
-                }
-              ]
-              allow(Fastlane::Actions::TestsFromJunitAction).to receive(:run) do |config|
-                expect(config._values).to have_key(:junit)
-                expect(config._values[:junit]).to match(expected_report_files.shift)
-                junit_results.shift
-              end
-              expect(Fastlane::Actions::ScanAction).to receive(:run).ordered.once do |config|
-                expect(config._values).to have_key(:output_files)
-                expect(config._values[:output_files]).to eq('report.html,report.junit')
-                raise FastlaneCore::Interface::FastlaneTestFailure, 'failed tests'
-              end
-              expect(Fastlane::Actions::ScanAction).to receive(:run).ordered.once do |config|
-                expect(config._values).to have_key(:output_files)
-                expect(config._values[:output_files]).to eq('report-2.html,report-2.junit')
-              end
-              result = scanner.correcting_scan(
-                {
-                  output_directory: '.'
-                },
-                1,
-                ReportNameHelper.new('html,junit')
-              )
-              expect(actualtestrun_completed_block_infos.size).to eq(2)
-              expect(actualtestrun_completed_block_infos[0]).to include(
-                failed: ['BagOfTests/CoinTossingUITests/testResultIsTails'],
-                passing: ['BagOfTests/CoinTossingUITests/testResultIsHeads'],
-                batch: 1,
-                try_count: 1,
-                report_filepath: "./report.junit",
-                html_report_filepath: "./report.html"
-              )
-              expect(actualtestrun_completed_block_infos[1]).to include(
-                failed: [],
-                passing: ['BagOfTests/CoinTossingUITests/testResultIsTails'],
-                batch: 1,
-                try_count: 2,
-                report_filepath: "./report-2.junit",
-                html_report_filepath: "./report-2.html"
-              )
-              expect(scanner.retry_total_count).to eq(1)
-              expect(result).to eq(true)
-            end
-
-            it 'calls scan three times when two runs have failures and copies the test_result bundle to a numbered bundle' do
-              scanner = CorrectingScanHelper.new(
-                xctestrun: 'path/to/fake.xctestrun',
-                output_directory: '.',
-                try_count: 3,
-                result_bundle: true,
-                scheme: 'AtomicBoy'
-              )
-              allow(File).to receive(:exist?).and_call_original
-              allow(File).to receive(:exist?).with(%r{.*/report(-[23])?.junit}).and_return(true)
-              allow(Fastlane::Actions::TestsFromJunitAction).to receive(:run) do |config|
-                { failed: ['BagOfTests/CoinTossingUITests/testResultIsTails'] }
-              end
-              expect(Fastlane::Actions::ScanAction).to receive(:run).ordered.once do |config|
-                raise FastlaneCore::Interface::FastlaneTestFailure, 'failed tests'
-              end
-              expect(Fastlane::Actions::ScanAction).to receive(:run).ordered.once do |config|
-                raise FastlaneCore::Interface::FastlaneTestFailure, 'failed tests'
-              end
-              expect(Fastlane::Actions::ScanAction).to receive(:run).ordered.once do |config|
-                raise FastlaneCore::Interface::FastlaneTestFailure, 'failed tests'
-              end
-              expected_fileutils_mv_params_list = [
-                {
-                  src: './AtomicBoy.test_result',
-                  dest: './AtomicBoy_1.test_result'
-                },
-                {
-                  src: './AtomicBoy.test_result',
-                  dest: './AtomicBoy_2.test_result'
-                },
-                {
-                  src: './AtomicBoy.test_result',
-                  dest: './AtomicBoy_3.test_result'
-                },
-                {
-                  src: './AtomicBoy.test_result',
-                  dest: './AtomicBoy_1.test_result'
-                },
-                {
-                  src: './AtomicBoy.test_result',
-                  dest: './AtomicBoy_2.test_result'
-                },
-                {
-                  src: './AtomicBoy.test_result',
-                  dest: './AtomicBoy_3.test_result'
-                }
-              ]
-              expect(FileUtils).to receive(:mv) do |src, dest|
-                expected_fileutils_mv_params = expected_fileutils_mv_params_list.shift
-                expect(expected_fileutils_mv_params[:src]).to eq(src)
-                expect(expected_fileutils_mv_params[:dest]).to eq(dest)
-              end.twice
-              expect(scanner).not_to receive(:collate_json_reports)
-              result = scanner.correcting_scan(
-                {
-                  output_directory: '.',
-                  scheme: 'AtomicBoy'
-                },
-                1,
-                ReportNameHelper.new('html,junit')
-              )
-              expect(scanner.retry_total_count).to eq(2)
-              expect(result).to eq(false)
-            end
-
-            it 'updates the ENV["XCPRETTY_JSON_FILE_OUTPUT"] appropriately when given json' do
-              scanner = CorrectingScanHelper.new(
-                xctestrun: 'path/to/fake.xctestrun',
-                output_directory: '.',
-                try_count: 3,
-                result_bundle: true,
-                scheme: 'AtomicBoy'
-              )
-              allow(File).to receive(:exist?).and_call_original
-              allow(File).to receive(:exist?).with(%r{.*/report(-[23])?.junit}).and_return(true)
-              allow(Fastlane::Actions::TestsFromJunitAction).to receive(:run) do |config|
-                { failed: ['BagOfTests/CoinTossingUITests/testResultIsTails'] }
-              end
-              allow(Fastlane::Actions::ScanAction).to receive(:run)
-              expect(ENV).to receive(:[]=).with('XCPRETTY_JSON_FILE_OUTPUT', './report.json').ordered.once
-              expect(ENV).to receive(:[]=).with('XCPRETTY_JSON_FILE_OUTPUT', nil).ordered.once
-              scanner.correcting_scan(
-                {
-                  output_directory: '.',
-                  scheme: 'AtomicBoy'
-                },
-                1,
-                ReportNameHelper.new('json,junit')
-              )
             end
 
             it 'collates json files when given json in :output_types' do

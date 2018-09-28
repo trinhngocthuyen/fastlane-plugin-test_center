@@ -119,7 +119,6 @@ module TestCenter
           set_json_env_if_necessary
           @reportnamer && @reportnamer.increment
         end
-
       end
     end
   end
