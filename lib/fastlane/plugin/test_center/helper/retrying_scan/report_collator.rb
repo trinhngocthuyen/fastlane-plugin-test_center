@@ -5,10 +5,13 @@ module TestCenter
         CollateJunitReportsAction = Fastlane::Actions::CollateJunitReportsAction
         CollateHtmlReportsAction = Fastlane::Actions::CollateHtmlReportsAction
         CollateJsonReportsAction = Fastlane::Actions::CollateJsonReportsAction
+        CollateTestResultBundlesAction = Fastlane::Actions::CollateTestResultBundlesAction
 
         def initialize(params)
           @output_directory = params[:output_directory]
           @reportnamer = params[:reportnamer]
+          @scheme = params[:scheme]
+          @result_bundle = params[:result_bundle]
         end
 
         def sort_globbed_files(glob)
@@ -43,6 +46,8 @@ module TestCenter
         end
 
         def collate_html_reports
+          return unless @reportnamer.includes_html?
+
           report_files = sort_globbed_files("#{@output_directory}/#{@reportnamer.html_fileglob}")
           if report_files.size > 1
             config = create_config(
@@ -58,6 +63,8 @@ module TestCenter
         end
 
         def collate_json_reports
+          return unless @reportnamer.includes_json?
+
           report_files = sort_globbed_files("#{@output_directory}/#{@reportnamer.json_fileglob}")
 
           if report_files.size > 1
@@ -70,6 +77,24 @@ module TestCenter
             )
             CollateJsonReportsAction.run(config)
             delete_globbed_intermediatefiles("#{@output_directory}/#{@reportnamer.json_numbered_fileglob}")
+          end
+        end
+
+        def collate_test_result_bundles
+          return unless @result_bundle
+
+          test_result_bundlepaths = sort_globbed_files("#{@output_directory}/#{@scheme}*.test_result")
+
+          if test_result_bundlepaths.size > 1
+            config = create_config(
+              CollateTestResultBundlesAction,
+              {
+                bundles: test_result_bundlepaths,
+                collated_bundle: "#{File.join(@output_directory, @scheme)}.test_result'"
+              }
+            )
+            CollateTestResultBundlesAction.run(config)
+            delete_globbed_intermediatefiles("#{@output_directory}/#{@scheme}-[1-9]*.test_result")
           end
         end
       end

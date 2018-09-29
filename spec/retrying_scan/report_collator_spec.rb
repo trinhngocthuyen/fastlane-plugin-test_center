@@ -96,5 +96,39 @@ describe TestCenter::Helper::RetryingScan do
 
       collator.collate_json_reports
     end
+
+    it 'collates test_result bundles correctly' do
+      reportnamer = ReportNameHelper.new(
+        'json',
+        'report.json'
+      )
+      collator = ReportCollator.new(
+        output_directory: '.',
+        reportnamer: reportnamer,
+        scheme: 'HappyHippo',
+        result_bundle: true
+      )
+      expect(collator).to receive(:sort_globbed_files).with('./HappyHippo*.test_result').and_return(['HappyHippo.test_result', 'HappyHippo-1.test_result', 'HappyHippo-2.test_result'])
+      config = OpenStruct.new
+      allow(config).to receive(:_values).and_return(
+        {
+            bundles: ['HappyHippo.test_result', 'HappyHippo-1.test_result', 'HappyHippo-2.test_result'],
+            collated_bundle: 'HappyHippo.test_result'
+          }
+      )
+      expect(collator).to receive(:create_config).and_return(config)
+      expect(Fastlane::Actions::CollateTestResultBundlesAction).to receive(:run) do |c|
+        expect(c._values).to eq(
+          {
+            bundles: ['HappyHippo.test_result', 'HappyHippo-1.test_result', 'HappyHippo-2.test_result'],
+            collated_bundle: 'HappyHippo.test_result'
+          }
+        )
+      end
+      expect(collator).to receive(:delete_globbed_intermediatefiles).with('./HappyHippo-[1-9]*.test_result')
+
+      collator.collate_test_result_bundles
+    end
+
   end
 end
