@@ -14,6 +14,13 @@ module TestCenter
           @result_bundle = params[:result_bundle]
         end
 
+        def collate
+          collate_json_reports
+          collate_html_reports
+          collate_json_reports
+          collate_test_result_bundles
+        end
+
         def sort_globbed_files(glob)
           file = Dir.glob(glob).map do |relative_filepath|
             File.absolute_path(relative_filepath)

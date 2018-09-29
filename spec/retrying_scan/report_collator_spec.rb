@@ -5,6 +5,22 @@ describe TestCenter::Helper::RetryingScan do
     ReportCollator = TestCenter::Helper::RetryingScan::ReportCollator
     ReportNameHelper = TestCenter::Helper::ReportNameHelper
 
+    it 'collates' do
+      reportnamer = ReportNameHelper.new(
+        'junit',
+        'report.xml'
+      )
+      collator = ReportCollator.new(
+        output_directory: '.',
+        reportnamer: reportnamer
+      )
+      expect(collator).to receive(:collate_json_reports)
+      expect(collator).to receive(:collate_html_reports)
+      expect(collator).to receive(:collate_json_reports)
+      expect(collator).to receive(:collate_test_result_bundles)
+      collator.collate
+    end
+
     it 'collates junit reports correctly' do
       reportnamer = ReportNameHelper.new(
         'junit',
