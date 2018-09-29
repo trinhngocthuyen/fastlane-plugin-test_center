@@ -14,6 +14,9 @@ describe TestCenter do
           @mock_testcollector = OpenStruct.new
           allow(TestCenter::Helper::TestCollector).to receive(:new).and_return(@mock_testcollector)
 
+          @mock_collator = OpenStruct.new
+          allow(TestCenter::Helper::RetryingScan::ReportCollator).to receive(:new).and_return(@mock_collator)
+          
           allow(File).to receive(:exist?).and_call_original
         end
 
@@ -100,7 +103,7 @@ describe TestCenter do
               1,
               @mock_reportnamer
             )
-          expect(scanner).to receive(:collate_reports)
+          expect(@mock_collator).to receive(:collate)
           scanner.scan
         end
 
@@ -160,7 +163,7 @@ describe TestCenter do
             .and_return(false)
             .ordered
             .once
-          expect(scanner).to receive(:collate_reports).twice
+          expect(@mock_collator).to receive(:collate).twice
           results = scanner.scan
           expect(results).to eq(false)
         end
@@ -212,7 +215,7 @@ describe TestCenter do
             .and_return(true)
             .ordered
             .once
-          expect(scanner).to receive(:collate_reports)
+          expect(@mock_collator).to receive(:collate)
           results = scanner.scan
           expect(results).to eq(true)
         end
@@ -300,7 +303,7 @@ describe TestCenter do
             .and_return(true)
             .ordered
             .once
-          expect(scanner).to receive(:collate_reports).twice
+          expect(@mock_collator).to receive(:collate).twice
           results = scanner.scan
           expect(results).to eq(false)
         end
@@ -361,7 +364,7 @@ describe TestCenter do
             .and_return(true)
             .ordered
             .once
-          expect(scanner).to receive(:collate_reports).twice
+          expect(@mock_collator).to receive(:collate).twice
           results = scanner.scan
           expect(results).to eq(false)
         end
@@ -415,7 +418,7 @@ describe TestCenter do
             .and_return(true)
             .ordered
             .once
-          expect(scanner).to receive(:collate_reports)
+          expect(@mock_collator).to receive(:collate)
           results = scanner.scan
           expect(results).to eq(true)
         end
@@ -501,7 +504,7 @@ describe TestCenter do
             .and_return(false)
             .ordered
             .once
-          expect(scanner).to receive(:collate_reports).twice
+          expect(@mock_collator).to receive(:collate).twice
           expect(@mock_interstitcher).to receive(:before_all).exactly(4).times
           results = scanner.scan
           expect(results).to eq(false)
@@ -625,41 +628,6 @@ describe TestCenter do
               )
               expect(scanner.retry_total_count).to eq(2)
               expect(result).to eq(false)
-            end
-
-            it 'collates json files when given json in :output_types' do
-              scanner = CorrectingScanHelper.new(
-                xctestrun: 'path/to/fake.xctestrun',
-                output_directory: '.',
-                try_count: 3,
-                scheme: 'AtomicBoy'
-              )
-              allow(FileUtils).to receive(:rm_f)
-              allow(Dir).to receive(:glob).with(/.*\.junit/).and_return(['report.junit', 'report-2.junit'])
-              allow(File).to receive(:mtime).and_return(0)
-              expect(Fastlane::Actions::CollateJunitReportsAction).to receive(:run)
-              expect(Fastlane::Actions::CollateHtmlReportsAction).not_to receive(:run)
-              expect(scanner).to receive(:collate_json_reports)
-              scanner.collate_reports('.', ReportNameHelper.new('json,junit'))
-            end
-
-            it 'collates test_result bundles when given :result_bundle as an option' do
-              scanner = CorrectingScanHelper.new(
-                xctestrun: 'path/to/fake.xctestrun',
-                output_directory: '.',
-                try_count: 3,
-                result_bundle: true,
-                scheme: 'AtomicBoy'
-              )
-              allow(FileUtils).to receive(:rm_f)
-              allow(Dir).to receive(:glob).with(/.*\.test_result/).and_return(['report.test_result', 'report-2.test_result'])
-              allow(Dir).to receive(:exist?).with(%r{.*/report.*.test_result}).and_return(true)
-              allow(File).to receive(:mtime).and_return(0)
-              expect(Fastlane::Actions::CollateTestResultBundlesAction).to receive(:run)
-              expect(Fastlane::Actions::CollateHtmlReportsAction).not_to receive(:run)
-              expect(Fastlane::Actions::CollateJsonReportsAction).not_to receive(:run)
-              expect(scanner).to receive(:collate_junit_reports)
-              scanner.collate_reports('.', ReportNameHelper.new('junit'))
             end
           end
         end

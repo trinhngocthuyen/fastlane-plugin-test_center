@@ -111,103 +111,13 @@ module TestCenter
           }
           tests_passed = correcting_scan(options, 1, reportnamer) && tests_passed
         end
-        collate_reports(output_directory, reportnamer)
+        TestCenter::Helper::RetryingScan::ReportCollator.new(
+          output_directory: output_directory,
+          reportnamer: reportnamer,
+          scheme: @scan_options[:scheme],
+          result_bundle: @scan_options[:result_bundle]
+        ).collate
         tests_passed
-      end
-
-      def test_result_bundlepaths(output_directory, reportnamer)
-        [
-          File.join(output_directory, @scan_options[:scheme]) + '.test_result',
-          File.join(output_directory, @scan_options[:scheme]) + "_#{reportnamer.report_count}.test_result"
-        ]
-      end
-
-      def collate_reports(output_directory, reportnamer)
-        collate_junit_reports(output_directory, reportnamer)
-
-        if reportnamer.includes_html?
-          collate_html_reports(output_directory, reportnamer)
-        end
-
-        if reportnamer.includes_json?
-          collate_json_reports(output_directory, reportnamer)
-        end
-
-        if @scan_options[:result_bundle]
-          collate_test_result_bundles(output_directory, reportnamer)
-        end
-      end
-
-      def collate_test_result_bundles(output_directory, reportnamer)
-        test_result_bundlepaths = Dir.glob("#{output_directory}/#{@scan_options[:scheme]}*.test_result").map do |relative_test_result_bundle_filepath|
-          File.absolute_path(relative_test_result_bundle_filepath)
-        end
-        if test_result_bundlepaths.size > 1
-          config = FastlaneCore::Configuration.create(
-            Fastlane::Actions::CollateTestResultBundlesAction.available_options,
-            {
-              bundles: test_result_bundlepaths.sort { |f1, f2| File.mtime(f1) <=> File.mtime(f2) },
-              collated_bundle: File.join(output_directory, @scan_options[:scheme]) + '.test_result'
-            }
-          )
-          Fastlane::Actions::CollateTestResultBundlesAction.run(config)
-        end
-        retried_test_result_bundlepaths = Dir.glob("#{output_directory}/#{@scan_options[:scheme]}_*.test_result")
-        FileUtils.rm_rf(retried_test_result_bundlepaths)
-      end
-
-      def collate_json_reports(output_directory, reportnamer)
-        report_filepaths = Dir.glob("#{output_directory}/#{reportnamer.json_fileglob}").map do |relative_filepath|
-          File.absolute_path(relative_filepath)
-        end
-        if report_filepaths.size > 1
-          config = FastlaneCore::Configuration.create(
-            Fastlane::Actions::CollateJsonReportsAction.available_options,
-            {
-              reports: report_filepaths.sort { |f1, f2| File.mtime(f1) <=> File.mtime(f2) },
-              collated_report: File.absolute_path(File.join(output_directory, reportnamer.json_reportname))
-            }
-          )
-          Fastlane::Actions::CollateJsonReportsAction.run(config)
-        end
-        retried_json_reportfiles = Dir.glob("#{output_directory}/#{reportnamer.json_numbered_fileglob}")
-        FileUtils.rm_f(retried_json_reportfiles)
-      end
-
-      def collate_html_reports(output_directory, reportnamer)
-        report_files = Dir.glob("#{output_directory}/#{reportnamer.html_fileglob}").map do |relative_filepath|
-          File.absolute_path(relative_filepath)
-        end
-        if report_files.size > 1
-          config = FastlaneCore::Configuration.create(
-            Fastlane::Actions::CollateHtmlReportsAction.available_options,
-            {
-              reports: report_files.sort { |f1, f2| File.mtime(f1) <=> File.mtime(f2) },
-              collated_report: File.absolute_path(File.join(output_directory, reportnamer.html_reportname))
-            }
-          )
-          Fastlane::Actions::CollateHtmlReportsAction.run(config)
-        end
-        retried_html_reportfiles = Dir.glob("#{output_directory}/#{reportnamer.html_numbered_fileglob}")
-        FileUtils.rm_f(retried_html_reportfiles)
-      end
-
-      def collate_junit_reports(output_directory, reportnamer)
-        report_files = Dir.glob("#{output_directory}/#{reportnamer.junit_fileglob}").map do |relative_filepath|
-          File.absolute_path(relative_filepath)
-        end
-        if report_files.size > 1
-          config = FastlaneCore::Configuration.create(
-            Fastlane::Actions::CollateJunitReportsAction.available_options,
-            {
-              reports: report_files.sort { |f1, f2| File.mtime(f1) <=> File.mtime(f2) },
-              collated_report: File.absolute_path(File.join(output_directory, reportnamer.junit_reportname))
-            }
-          )
-          Fastlane::Actions::CollateJunitReportsAction.run(config)
-        end
-        retried_junit_reportfiles = Dir.glob("#{output_directory}/#{reportnamer.junit_numbered_fileglob}")
-        FileUtils.rm_f(retried_junit_reportfiles)
       end
 
       def correcting_scan(scan_run_options, batch, reportnamer)
