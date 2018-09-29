@@ -216,7 +216,7 @@ describe TestCenter::Helper::RetryingScan do
           batch: 1,
           try_count: 2,
           report_filepath: './relative_path/to/last_produced_junit.xml',
-          test_result_bundlepath: './AtomicHeart_1.test_result'
+          test_result_bundlepath: './AtomicHeart-1.test_result'
         })
         allow(mock_reportnamer).to receive(:report_count).and_return(1)
         stitcher.send_info_for_try(2)

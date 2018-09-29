@@ -96,7 +96,7 @@ module TestCenter
           end
           if @result_bundle
             test_result_suffix = '.test_result'
-            test_result_suffix.prepend("_#{@reportnamer.report_count}") unless @reportnamer.report_count.zero?
+            test_result_suffix.prepend("-#{@reportnamer.report_count}") unless @reportnamer.report_count.zero?
             test_result_bundlepath = File.join(@output_directory, @scheme) + test_result_suffix
             info[:test_result_bundlepath] = test_result_bundlepath
           end
