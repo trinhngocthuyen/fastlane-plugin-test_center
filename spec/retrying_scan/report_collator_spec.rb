@@ -65,5 +65,36 @@ describe TestCenter::Helper::RetryingScan do
 
       collator.collate_html_reports
     end
+
+    it 'collates json reports correctly' do
+      reportnamer = ReportNameHelper.new(
+        'json',
+        'report.json'
+      )
+      collator = ReportCollator.new(
+        output_directory: '.',
+        reportnamer: reportnamer
+      )
+      expect(collator).to receive(:sort_globbed_files).with('./report*.json').and_return(['report.json', 'report-1.json', 'report-2.json'])
+      config = OpenStruct.new
+      allow(config).to receive(:_values).and_return(
+        {
+            reports: ['report.json', 'report-1.json', 'report-2.json'],
+            collated_report: 'report.json'
+          }
+      )
+      expect(collator).to receive(:create_config).and_return(config)
+      expect(Fastlane::Actions::CollateJsonReportsAction).to receive(:run) do |c|
+        expect(c._values).to eq(
+          {
+            reports: ['report.json', 'report-1.json', 'report-2.json'],
+            collated_report: 'report.json'
+          }
+        )
+      end
+      expect(collator).to receive(:delete_globbed_intermediatefiles).with('./report-[1-9]*.json')
+
+      collator.collate_json_reports
+    end
   end
 end

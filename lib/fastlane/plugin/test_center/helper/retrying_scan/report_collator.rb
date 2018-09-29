@@ -4,6 +4,7 @@ module TestCenter
       class ReportCollator
         CollateJunitReportsAction = Fastlane::Actions::CollateJunitReportsAction
         CollateHtmlReportsAction = Fastlane::Actions::CollateHtmlReportsAction
+        CollateJsonReportsAction = Fastlane::Actions::CollateJsonReportsAction
 
         def initialize(params)
           @output_directory = params[:output_directory]
@@ -53,6 +54,22 @@ module TestCenter
             )
             CollateHtmlReportsAction.run(config)
             delete_globbed_intermediatefiles("#{@output_directory}/#{@reportnamer.html_numbered_fileglob}")
+          end
+        end
+
+        def collate_json_reports
+          report_files = sort_globbed_files("#{@output_directory}/#{@reportnamer.json_fileglob}")
+
+          if report_files.size > 1
+            config = create_config(
+              CollateJsonReportsAction,
+              {
+                reports: report_files,
+                collated_report: File.absolute_path(File.join(@output_directory, @reportnamer.json_reportname))
+              }
+            )
+            CollateJsonReportsAction.run(config)
+            delete_globbed_intermediatefiles("#{@output_directory}/#{@reportnamer.json_numbered_fileglob}")
           end
         end
       end
