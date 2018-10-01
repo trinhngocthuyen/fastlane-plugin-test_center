@@ -38,6 +38,8 @@ module TestCenter
         tests_passed = true
         @testables_count = @test_collector.testables.size
         @test_collector.testables.each do |testable|
+          reset_for_new_testable
+
           tests_passed = scan_testable(testable) && tests_passed
         end
         interstitial.after_all
@@ -50,6 +52,15 @@ module TestCenter
           @given_output_files,
           @given_custom_report_file_name
         )
+      end
+
+      def reset_interstitial
+        @interstitial = nil
+      end
+
+      def reset_for_new_testable
+        reset_reportnamer
+        reset_interstitial
       end
 
       def reportnamer
