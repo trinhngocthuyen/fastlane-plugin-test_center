@@ -15,6 +15,7 @@ module TestCenter
         end
         @only_testing = options[:only_testing]
         @skip_testing = options[:skip_testing]
+        @batch_count = options[:batch_count]
       end
 
       def default_derived_data_path(options)
@@ -69,6 +70,24 @@ module TestCenter
           end
         end
         @testables_tests
+      end
+
+      def test_batches
+        if @batches.nil?
+          @batches = []
+          testables.each do |testable|
+            testable_tests = testables_tests[testable]
+            if @batch_count > 1
+              testable_tests.each_slice((testable_tests.length / @batch_count.to_f).round).to_a.each do |tests_batch|
+                @batches << testable_tests
+              end
+            else
+              @batches << testable_tests
+            end
+          end
+        end
+
+        @batches
       end
     end
   end
