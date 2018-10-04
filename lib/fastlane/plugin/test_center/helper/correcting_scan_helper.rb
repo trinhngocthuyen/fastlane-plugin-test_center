@@ -35,6 +35,41 @@ module TestCenter
       end
 
       def scan
+        all_tests_passed = true
+        @testables_count = @test_collector.testables.size
+        @test_collector.test_batches.each_with_index do |test_batch, current_batch_index|
+          reset_for_new_testable
+          FastlaneCore::UI.header("Starting test run on batch '#{current_batch_index}'")
+          testrun_passed = correcting_scan(
+            {
+              only_testing: test_batch,
+              output_directory: output_directory
+            },
+            current_batch_index,
+            reportnamer
+          )
+          all_tests_passed = testrun_passed && all_tests_passed
+          TestCenter::Helper::RetryingScan::ReportCollator.new(
+            output_directory: output_directory,
+            reportnamer: reportnamer,
+            scheme: @scan_options[:scheme],
+            result_bundle: @scan_options[:result_bundle]
+          ).collate
+        end
+
+        tests_passed
+      end
+
+      def testrun_output_directory
+        if @test_collector.testables.size.one?
+          @output_directory
+        else
+          File.join(@output_directory, "results-#{testable}")
+        end
+      end
+
+
+      def scan
         tests_passed = true
         @testables_count = @test_collector.testables.size
         @test_collector.testables.each do |testable|
@@ -79,7 +114,7 @@ module TestCenter
           @interstitial = TestCenter::Helper::RetryingScan::Interstitial.new(
             @scan_options.merge(
               {
-                output_directory: @output_directory,
+                output_directory: testrun_output_directory,
                 reportnamer: reportnamer
               }
             )
