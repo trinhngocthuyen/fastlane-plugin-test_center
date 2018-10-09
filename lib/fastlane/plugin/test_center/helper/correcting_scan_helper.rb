@@ -4,6 +4,8 @@ module TestCenter
     require 'plist'
     require 'json'
     class CorrectingScanHelper
+      include TestCenter::Helper::RetryingScan::SimulatorManager
+
       attr_reader :retry_total_count
 
       def initialize(multi_scan_options)
@@ -35,6 +37,8 @@ module TestCenter
       end
 
       def scan
+        setup_simulators
+        
         all_tests_passed = true
         @testables_count = @test_collector.testables.size
         @test_collector.test_batches.each_with_index do |test_batch, current_batch_index|
