@@ -30,6 +30,7 @@ module TestCenter
             testrun_completed_block
             output_types
             output_files
+            parallelize
           ].include?(option)
         end
         @scan_options[:clean] = false
@@ -38,7 +39,7 @@ module TestCenter
 
       def scan
         setup_simulators
-        
+
         all_tests_passed = true
         @testables_count = @test_collector.testables.size
         @test_collector.test_batches.each_with_index do |test_batch, current_batch_index|
@@ -68,7 +69,7 @@ module TestCenter
             result_bundle: @scan_options[:result_bundle]
           ).collate
         end
-
+        cleanup_simulators
         all_tests_passed
       end
 

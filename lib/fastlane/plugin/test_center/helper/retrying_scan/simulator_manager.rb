@@ -30,6 +30,11 @@ module TestCenter
             end
           end
         end
+
+        def cleanup_simulators
+          @simulators.flatten.each(&:delete)
+          @simulators = []
+        end
       end
     end
   end
