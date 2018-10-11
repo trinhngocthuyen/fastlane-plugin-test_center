@@ -52,7 +52,7 @@ module TestCenter
           @interstitial.batch = current_batch_index
           @interstitial.output_directory = output_directory
           @interstitial.before_all
-
+          @scan_options[:devices] = devices(current_batch_index)
           testrun_passed = correcting_scan(
             {
               only_testing: test_batch,

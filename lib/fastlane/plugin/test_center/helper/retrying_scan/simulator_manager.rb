@@ -35,6 +35,16 @@ module TestCenter
           @simulators.flatten.each(&:delete)
           @simulators = []
         end
+
+        def devices(batch_index)
+          if @simulators.count > 0
+            @simulators[batch_index].map do |simulator|
+              "#{simulator.name} (#{simulator.os_version})"
+            end
+          else
+            @scan_options[:devices] || Array(@scan_options[:device])
+          end
+        end
       end
     end
   end
