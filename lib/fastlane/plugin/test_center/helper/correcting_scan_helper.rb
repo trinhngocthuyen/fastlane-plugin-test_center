@@ -34,7 +34,13 @@ module TestCenter
           ].include?(option)
         end
         @scan_options[:clean] = false
+        @scan_options[:disable_concurrent_testing] = true
         @test_collector = TestCollector.new(multi_scan_options)
+        ObjectSpace.define_finalizer( self, self.class.finalize )
+      end
+
+      def self.finalize(name)
+        proc { cleanup_simulators }
       end
 
       def scan
@@ -52,6 +58,7 @@ module TestCenter
           @interstitial.batch = current_batch_index
           @interstitial.output_directory = output_directory
           @interstitial.before_all
+          byebug
           @scan_options[:devices] = devices(current_batch_index)
           testrun_passed = correcting_scan(
             {

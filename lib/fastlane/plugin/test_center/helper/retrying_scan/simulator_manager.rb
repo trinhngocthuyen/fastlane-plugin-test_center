@@ -22,7 +22,7 @@ module TestCenter
           end
           (0...@batch_count).each do |batch_index|
             @simulators[batch_index] ||= []
-
+            byebug
             found_simulator_devices.each do |found_simulator_device|
               device_for_batch = found_simulator_device.clone
               device_for_batch.rename("#{found_simulator_device.name}-batchclone-#{batch_index}")
@@ -67,7 +67,7 @@ module FastlaneCore
       end
 
       def rename(newname)
-        `xcrun simctl rename #{self.udid} '#{newname}''`
+        `xcrun simctl rename #{self.udid} '#{newname}'`
         self.name = newname
       end
     end
