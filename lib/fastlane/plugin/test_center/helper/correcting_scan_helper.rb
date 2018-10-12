@@ -37,6 +37,7 @@ module TestCenter
         @scan_options[:disable_concurrent_testing] = true
         @test_collector = TestCollector.new(multi_scan_options)
         ObjectSpace.define_finalizer( self, self.class.finalize )
+        super()
       end
 
       def self.finalize(name)

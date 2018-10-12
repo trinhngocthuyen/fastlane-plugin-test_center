@@ -1,6 +1,5 @@
 describe TestCenter::Helper::RetryingScan do
-  describe 'report_collator', report_collator: true do
-    require 'pry-byebug'
+  describe 'report_collator' do
 
     ReportCollator = TestCenter::Helper::RetryingScan::ReportCollator
     ReportNameHelper = TestCenter::Helper::ReportNameHelper

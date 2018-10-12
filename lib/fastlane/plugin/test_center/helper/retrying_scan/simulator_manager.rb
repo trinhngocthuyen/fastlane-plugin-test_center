@@ -4,13 +4,13 @@ module TestCenter
       module SimulatorManager
         require 'scan'
 
-      # This class will take the standard scan destinatons, and create clones
-      # it will provide the scan destinations for each parallelized sim run
-      # it will delete the clones if 
+        def initialize
+          @simulators ||= []
+        end
+      
         def setup_simulators
           return if @batch_count == 1
 
-          @simulators ||= []
 
           found_simulator_devices = []
 
@@ -37,6 +37,11 @@ module TestCenter
         end
 
         def devices(batch_index)
+          if batch_index > @batch_count
+            simulator_count = [@batch_count, @simulators.count].max
+            raise "Error: impossible to request devices for batch #{batch_index}, there are only #{simulator_count} set(s) of simulators"
+          end
+
           if @simulators.count > 0
             @simulators[batch_index].map do |simulator|
               "#{simulator.name} (#{simulator.os_version})"
