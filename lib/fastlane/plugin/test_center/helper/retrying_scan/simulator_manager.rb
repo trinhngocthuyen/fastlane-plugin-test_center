@@ -6,11 +6,14 @@ module TestCenter
 
         def initialize
           @simulators ||= []
+
+          if @batch_count < 1
+            raise FastlaneCore::FastlaneCrash.new({}), "batch_count (#{@batch_count}) < 1, this should never happen"
+          end
         end
-      
+
         def setup_simulators
           return if @batch_count == 1
-
 
           found_simulator_devices = []
 
@@ -22,10 +25,10 @@ module TestCenter
           end
           (0...@batch_count).each do |batch_index|
             @simulators[batch_index] ||= []
-            byebug
             found_simulator_devices.each do |found_simulator_device|
               device_for_batch = found_simulator_device.clone
-              device_for_batch.rename("#{found_simulator_device.name}-batchclone-#{batch_index}")
+              new_name = "#{found_simulator_device.name}-batchclone-#{batch_index + 1}"
+              device_for_batch.rename(new_name)
               @simulators[batch_index] << device_for_batch
             end
           end
@@ -43,7 +46,7 @@ module TestCenter
           end
 
           if @simulators.count > 0
-            @simulators[batch_index].map do |simulator|
+            @simulators[batch_index - 1].map do |simulator|
               "#{simulator.name} (#{simulator.os_version})"
             end
           else
