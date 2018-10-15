@@ -40,7 +40,7 @@ module TestCenter
         super()
       end
 
-      def self.finalize(name)
+      def self.finalize
         proc { cleanup_simulators }
       end
 
