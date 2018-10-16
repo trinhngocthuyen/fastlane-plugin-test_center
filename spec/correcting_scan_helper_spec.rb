@@ -20,21 +20,36 @@ describe TestCenter do
           allow(File).to receive(:exist?).and_call_original
         end
 
-        it 'calls scan_testable for each testable' do
-          allow(@mock_testcollector).to receive(:testables).and_return(['AtomicBoyTests'])
-          scanner = CorrectingScanHelper.new(
-            xctestrun: 'path/to/fake.xctestrun'
+        it 'calls correcting_scan for each testable' do
+          allow(@mock_testcollector).to receive(:testables).and_return([nil, nil])
+          allow(@mock_testcollector).to receive(:test_batches).and_return(
+            [
+              ['AtomicBoyTests/testOne'],
+              ['AtomicBoyUITests/testOne']
+            ]
           )
-          expect(scanner).to receive(:scan_testable).with('AtomicBoyTests').and_return(true).once
-          results = scanner.scan
-          expect(results).to eq(true)
-
-          allow(@mock_testcollector).to receive(:testables).and_return(['AtomicBoyTests', 'AtomicBoyUITests'])
           scanner = CorrectingScanHelper.new(
-            xctestrun: 'path/to/fake.xctestrun'
+            xctestrun: 'path/to/fake.xctestrun',
+            result_bundle: true,
+            output_directory: '.',
+            scheme: 'AtomicBoy'
           )
-          expect(scanner).to receive(:scan_testable).with('AtomicBoyTests').and_return(false).ordered.once
-          expect(scanner).to receive(:scan_testable).with('AtomicBoyUITests').and_return(true).ordered.once
+          expect(scanner).to receive(:correcting_scan).with(
+            {
+              only_testing: ['AtomicBoyTests/testOne'],
+              output_directory: anything
+            },
+            0,
+            anything
+          ).and_return(false).ordered.once
+          expect(scanner).to receive(:correcting_scan).with(
+            {
+              only_testing: ['AtomicBoyUITests/testOne'],
+              output_directory: anything
+            },
+            1,
+            anything
+          ).and_return(true).ordered.once
           results = scanner.scan
           expect(results).to eq(false)
         end
