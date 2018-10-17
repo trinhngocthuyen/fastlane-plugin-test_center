@@ -9,7 +9,6 @@ module TestCenter
       attr_reader :retry_total_count
 
       def initialize(multi_scan_options)
-        @batch_count = multi_scan_options[:batch_count] || 1
         @output_directory = multi_scan_options[:output_directory] || 'test_results'
         @try_count = multi_scan_options[:try_count]
         @retry_total_count = 0
@@ -36,6 +35,7 @@ module TestCenter
         @scan_options[:clean] = false
         @scan_options[:disable_concurrent_testing] = true
         @test_collector = TestCollector.new(multi_scan_options)
+        @batch_count = @test_collector.test_batches.size
         ObjectSpace.define_finalizer( self, self.class.finalize )
         super()
       end
@@ -49,6 +49,9 @@ module TestCenter
 
         all_tests_passed = true
         @testables_count = @test_collector.testables.size
+        @test_collector.test_batches.each_with_index do |test_batch, current_batch_index|
+          puts "current_batch_index: #{current_batch_index}"
+        end
         @test_collector.test_batches.each_with_index do |test_batch, current_batch_index|
           output_directory = @output_directory
           unless @testables_count == 1
