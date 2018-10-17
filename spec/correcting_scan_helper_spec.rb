@@ -54,38 +54,24 @@ describe TestCenter do
           expect(results).to eq(false)
         end
 
-        it 'clears out test_rest bundles before calling correcting_scan' do
-          allow(@mock_testcollector).to receive(:testables).and_return(['AtomicBoyTests', 'AtomicBoyUITests'])
+        it 'calls intersitial\'s before_all before :correcting_scan' do
+          allow(@mock_testcollector).to receive(:testables).and_return([nil, nil])
+          allow(@mock_testcollector).to receive(:test_batches).and_return(
+            [
+              ['AtomicBoyTests/testOne'],
+              ['AtomicBoyUITests/testOne']
+            ]
+          )
           scanner = CorrectingScanHelper.new(
             xctestrun: 'path/to/fake.xctestrun',
             result_bundle: true,
             output_directory: '.',
             scheme: 'AtomicBoy'
           )
-          allow(@mock_testcollector).to receive(:testables_tests).and_return(
-            {
-              'AtomicBoyTests' => [
-                'AtomicBoyTests/AtomicBoyTests/testExample1',
-                'AtomicBoyTests/AtomicBoyTests/testExample2',
-                'AtomicBoyTests/AtomicBoyTests/testExample3',
-                'AtomicBoyTests/AtomicBoyTests/testExample4'
-              ],
-              'AtomicBoyUITests' => [
-                'AtomicBoyUITests/AtomicBoyUITests/testExample1',
-                'AtomicBoyUITests/AtomicBoyUITests/testExample2',
-                'AtomicBoyUITests/AtomicBoyUITests/testExample3',
-                'AtomicBoyUITests/AtomicBoyUITests/testExample4'
-              ]
-            }
-          )
-
-          expected_calls = []
-          expect(TestCenter::Helper::RetryingScan::Interstitial).to receive(:new).and_return(@mock_interstitcher)
-          expect(scanner).to receive(:correcting_scan).twice do
-            expected_calls << :correcting_scan
-          end
+          allow(scanner).to receive(:correcting_scan)
+          allow(TestCenter::Helper::RetryingScan::Interstitial).to receive(:new).and_return(@mock_interstitcher)
+          expect(@mock_interstitcher).to receive(:before_all).twice
           scanner.scan
-          expect(expected_calls).to eq([:correcting_scan, :correcting_scan])
         end
 
         it 'scan calls correcting_scan once for one testable' do
