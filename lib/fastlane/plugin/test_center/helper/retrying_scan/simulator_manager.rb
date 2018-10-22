@@ -16,6 +16,9 @@ module TestCenter
           return if @batch_count == 1
 
           found_simulator_devices = []
+          FastlaneCore::DeviceManager.simulators('iOS').each do |simulator|
+            simulator.delete if /-batchclone-/ =~ simulator.name
+          end
 
           devices = @scan_options[:devices] || Array(@scan_options[:device])
           if devices.count > 0

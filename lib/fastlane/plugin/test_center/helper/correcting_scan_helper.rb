@@ -55,7 +55,8 @@ module TestCenter
         @test_collector.test_batches.each_with_index do |test_batch, current_batch_index|
           output_directory = @output_directory
           unless @testables_count == 1
-            output_directory = File.join(@output_directory, "results-#{current_batch_index}")
+            output_directory_suffix = test_batch.first.split('/').first
+            output_directory = File.join(@output_directory, "results-#{output_directory_suffix}")
           end
           reset_for_new_testable(output_directory)
           FastlaneCore::UI.header("Starting test run on batch '#{current_batch_index}'")
@@ -134,7 +135,10 @@ module TestCenter
           if try_count < @try_count
             @retry_total_count += 1
             scan_options.delete(:code_coverage)
-            scan_options[:only_testing] = failed_tests(reportnamer, scan_options[:output_directory]).map(&:shellescape)
+            tests_to_retry = failed_tests(reportnamer, scan_options[:output_directory]).map(&:shellescape)
+            byebug if tests_to_retry.any? { |e| tests_to_retry.count(e) > 1 }
+
+            scan_options[:only_testing] = tests_to_retry
             FastlaneCore::UI.message('Re-running scan on only failed tests')
             @interstitial.finish_try(try_count)
             retry

@@ -3,6 +3,7 @@ module TestCenter
     require 'fastlane_core/ui/ui.rb'
     require 'fastlane/actions/scan'
     require 'plist'
+    require 'pry-byebug'
 
     class TestCollector
       def initialize(options)
@@ -79,7 +80,7 @@ module TestCenter
             testable_tests = testables_tests[testable]
             if @batch_count > 1
               testable_tests.each_slice((testable_tests.length / @batch_count.to_f).round).to_a.each do |tests_batch|
-                @batches << testable_tests
+                @batches << tests_batch
               end
             else
               @batches << testable_tests
