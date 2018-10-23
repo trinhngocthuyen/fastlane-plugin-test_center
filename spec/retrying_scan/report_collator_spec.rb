@@ -15,7 +15,7 @@ describe TestCenter::Helper::RetryingScan do
       )
       expect(collator).to receive(:collate_json_reports)
       expect(collator).to receive(:collate_html_reports)
-      expect(collator).to receive(:collate_json_reports)
+      expect(collator).to receive(:collate_junit_reports)
       expect(collator).to receive(:collate_test_result_bundles)
       collator.collate
     end

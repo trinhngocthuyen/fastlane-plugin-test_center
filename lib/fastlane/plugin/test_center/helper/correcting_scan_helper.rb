@@ -52,7 +52,7 @@ module TestCenter
         @test_collector.test_batches.each_with_index do |test_batch, current_batch_index|
           puts "current_batch_index: #{current_batch_index}"
         end
-        each_batch do |test_batch, current_batch_index|
+        all_tests_passed = each_batch do |test_batch, current_batch_index|
           output_directory = @output_directory
           unless @testables_count == 1
             output_directory_suffix = test_batch.first.split('/').first
@@ -79,6 +79,7 @@ module TestCenter
             scheme: @scan_options[:scheme],
             result_bundle: @scan_options[:result_bundle]
           ).collate
+          testrun_passed && all_tests_passed
         end
         cleanup_simulators
         all_tests_passed
@@ -142,7 +143,6 @@ module TestCenter
             @retry_total_count += 1
             scan_options.delete(:code_coverage)
             tests_to_retry = failed_tests(reportnamer, scan_options[:output_directory]).map(&:shellescape)
-            byebug if tests_to_retry.any? { |e| tests_to_retry.count(e) > 1 }
 
             scan_options[:only_testing] = tests_to_retry
             FastlaneCore::UI.message('Re-running scan on only failed tests')

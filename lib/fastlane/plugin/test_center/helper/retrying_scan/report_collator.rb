@@ -15,7 +15,7 @@ module TestCenter
         end
 
         def collate
-          collate_json_reports
+          collate_junit_reports
           collate_html_reports
           collate_json_reports
           collate_test_result_bundles
