@@ -16,42 +16,8 @@ describe TestCenter do
 
           @mock_collator = OpenStruct.new
           allow(TestCenter::Helper::RetryingScan::ReportCollator).to receive(:new).and_return(@mock_collator)
-          
-          allow(File).to receive(:exist?).and_call_original
-        end
 
-        it 'calls correcting_scan for each testable' do
-          allow(@mock_testcollector).to receive(:testables).and_return([nil, nil])
-          allow(@mock_testcollector).to receive(:test_batches).and_return(
-            [
-              ['AtomicBoyTests/testOne'],
-              ['AtomicBoyUITests/testOne']
-            ]
-          )
-          scanner = CorrectingScanHelper.new(
-            xctestrun: 'path/to/fake.xctestrun',
-            result_bundle: true,
-            output_directory: '.',
-            scheme: 'AtomicBoy'
-          )
-          expect(scanner).to receive(:correcting_scan).with(
-            {
-              only_testing: ['AtomicBoyTests/testOne'],
-              output_directory: anything
-            },
-            0,
-            anything
-          ).and_return(false).ordered.once
-          expect(scanner).to receive(:correcting_scan).with(
-            {
-              only_testing: ['AtomicBoyUITests/testOne'],
-              output_directory: anything
-            },
-            1,
-            anything
-          ).and_return(true).ordered.once
-          results = scanner.scan
-          expect(results).to eq(false)
+          allow(File).to receive(:exist?).and_call_original
         end
 
         it 'calls intersitial\'s before_all before :correcting_scan' do
@@ -69,6 +35,7 @@ describe TestCenter do
             scheme: 'AtomicBoy'
           )
           allow(scanner).to receive(:correcting_scan)
+          allow(scanner).to receive(:setup_simulators)
           allow(TestCenter::Helper::RetryingScan::Interstitial).to receive(:new).and_return(@mock_interstitcher)
           expect(@mock_interstitcher).to receive(:before_all).twice
           scanner.scan
@@ -93,6 +60,7 @@ describe TestCenter do
               allow(File).to receive(:exist?).and_call_original
               allow(File).to receive(:exist?).and_return(true)
               allow(@mock_testcollector).to receive(:testables).and_return(['AtomicBoyTests'])
+              allow(@mock_testcollector).to receive(:test_batches).and_return({'AtomicBoyTests' => ['AtomicBoyTests']})
             end
 
             it 'stops sending :code_coverage down after the first run' do
@@ -137,6 +105,7 @@ describe TestCenter do
               allow(File).to receive(:exist?).and_call_original
               allow(File).to receive(:exist?).and_return(true)
               allow(@mock_testcollector).to receive(:testables).and_return(['AtomicBoyTests'])
+              allow(@mock_testcollector).to receive(:test_batches).and_return(['AtomicBoyTests' => ['AtomicBoyTests']])
             end
 
             it 'calls scan once with no failures' do
