@@ -52,7 +52,7 @@ module TestCenter
         @test_collector.test_batches.each_with_index do |test_batch, current_batch_index|
           puts "current_batch_index: #{current_batch_index}"
         end
-        @test_collector.test_batches.each_with_index do |test_batch, current_batch_index|
+        each_batch do |test_batch, current_batch_index|
           output_directory = @output_directory
           unless @testables_count == 1
             output_directory_suffix = test_batch.first.split('/').first
@@ -82,6 +82,12 @@ module TestCenter
         end
         cleanup_simulators
         all_tests_passed
+      end
+
+      def each_batch
+        @test_collector.test_batches.each_with_index do |test_batch, current_batch_index|
+          yield(test_batch, current_batch_index)
+        end
       end
 
       def testrun_output_directory
