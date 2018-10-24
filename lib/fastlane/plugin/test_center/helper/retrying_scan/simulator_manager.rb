@@ -13,7 +13,7 @@ module TestCenter
         end
 
         def setup_simulators
-          return if @batch_count == 1
+          return unless @batch_count > 1 && @parallelize
 
           found_simulator_devices = []
           FastlaneCore::DeviceManager.simulators('iOS').each do |simulator|
