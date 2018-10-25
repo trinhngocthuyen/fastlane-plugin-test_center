@@ -19,6 +19,9 @@ module TestCenter
           before_all
         end
 
+        # TODO: Should we be creating a new interstitial for each batch? yes. 
+        # Should we clear out the result bundles before each batch? --> should 
+        # it not be done before all batches? Same with env var for json resports.
         def before_all
           if @result_bundle
             remove_preexisting_test_result_bundles
