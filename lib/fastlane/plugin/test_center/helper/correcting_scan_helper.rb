@@ -49,9 +49,6 @@ module TestCenter
       def scan
         all_tests_passed = true
         @testables_count = @test_collector.testables.size
-        @test_collector.test_batches.each_with_index do |test_batch, current_batch_index|
-          puts "current_batch_index: #{current_batch_index}"
-        end
         all_tests_passed = each_batch do |test_batch, current_batch_index|
           output_directory = @output_directory
           unless @testables_count == 1
@@ -84,65 +81,93 @@ module TestCenter
         all_tests_passed
       end
 
+      def setup_pipes_for_fork
+        @pipe_endpoints = []
+        (0..@batch_count).each do |current_batch_index|
+          @pipe_endpoints << IO.pipe
+        end
+      end
+
+      def connect_subprocess_endpoint(batch_index)
+        mainprocess_reader, _ = @pipe_endpoints[batch_index]
+        mainprocess_reader.close # we are now in the subprocess
+
+        subprocess_output_dir = Dir.mktmpdir
+        puts "log files written to #{subprocess_output_dir}"
+        subprocess_logfilepath = File.join(subprocess_output_dir, "batchscan_#{current_batch_index}.log")
+        subprocess_logfile = File.open(subprocess_logfilepath, 'w')
+        $stdout.reopen(subprocess_logfile)
+        $stderr.reopen(subprocess_logfile)
+      end
+
+      def ensure_conflict_free_scanlogging(batch_index)
+        @scan_options[:buildlog_path] = @scan_options[:buildlog_path] + "-#{current_batch_index}"
+      end
+
+      def send_subprocess_result(batch_index, result)
+        _, subprocess_writer = @pipe_endpoints[batch_index]
+        subprocess_logfile = $stdout # Remember? We changed $stdout in :connect_subprocess_endpoint to be a File.
+
+        subprocess_output = {
+          'subprocess_logfilepath' => subprocess_logfile.path,
+          'tests_passed' => result
+        }
+        subprocess_writer.puts subprocess_output.to_json
+        subprocess_writer.flush
+        subprocess_logfile.close
+      end
+
+      def disconnect_subprocess_endpoints
+        # This is done from the parent process to close the pipe from its end so
+        # that its reading of the pipe doesn't block waiting for more IO on the
+        # writer.
+        @pipe_endpoints.each { |_, subprocess_writer| subprocess_writer.close }
+      end
+
       def each_batch
         tests_passed = true
         if @parallelize
-          @parallelize_simulators = []
           setup_simulators
-          @test_collector.test_batches.each_with_index do |test_batch, current_batch_index|
-            mainprocess_reader, subprocess_writer = IO.pipe
-            @fork_pipes << [mainprocess_reader, subprocess_writer]
-            children_output_dir = Dir.mktmpdir
-            puts "log files written to #{children_output_dir}"
-            fork do
-              mainprocess_reader.close # we are now in the subprocess
+          setup_pipes_for_fork
 
-              subprocess_logfilepath = File.join(children_output_dir, "batchscan_#{current_batch_index}.log")
-              subprocess_logfile = File.open(subprocess_logfilepath, 'w')
-              $stdout.reopen(subprocess_logfile)
-              $stderr.reopen(subprocess_logfile)
-              @scan_options[:buildlog_path] = @scan_options[:buildlog_path] + "-#{current_batch_index}"
-              tests_passed = false
+          @test_collector.test_batches.each_with_index do |test_batch, current_batch_index|
+            fork do
+              connect_subprocess_endpoint(current_batch_index)
+              ensure_conflict_free_scanlogging(current_batch_index)
               begin
                 tests_passed = yield(test_batch, current_batch_index)
               ensure
-                subprocess_output = {
-                  'subprocess_logfilepath' => subprocess_logfilepath,
-                  'tests_passed' => tests_passed
-                }
-                subprocess_writer.puts subprocess_output.to_json
-                subprocess_writer.flush
-                subprocess_logfile.close
+                send_subprocess_result(current_batch_index, tests_passed)
               end
-              exit(true)
+              exit(true) # last command to ensure subprocess ends quickly.
             end
-            subprocess_writer.close # we are now in the parent process
           end
+          disconnect_subprocess_endpoints
         else
           @test_collector.test_batches.each_with_index do |test_batch, current_batch_index|
             tests_passed = yield(test_batch, current_batch_index)
           end
         end
 
-        if @parallelize
-          FastlaneCore::Helper.show_loading_indicator("Scanning in #{@batch_count} batches")
-          Process.waitall
-          FastlaneCore::Helper.hide_loading_indicator
-          cleanup_simulators
-          puts '=' * 80
-          @fork_pipes.each do |batch_pipes|
-            mainprocess_reader, = batch_pipes
-            puts '-' * 80
-            subprocess_output = mainprocess_reader.read
-            unless subprocess_output.empty?
-              subprocess_result = JSON.parse(subprocess_output)
-              subprocess_logfilepath = subprocess_result['subprocess_logfilepath']
-              tests_passed = subprocess_result['tests_passed'] && tests_passed
-              puts File.open(subprocess_logfilepath, 'r').read if File.exist?(subprocess_logfilepath)
-            end
-          end
-          puts '=' * 80
-        end
+        # if @parallelize
+        #   FastlaneCore::Helper.show_loading_indicator("Scanning in #{@batch_count} batches")
+        #   Process.waitall
+        #   FastlaneCore::Helper.hide_loading_indicator
+        #   cleanup_simulators
+        #   puts '=' * 80
+        #   @fork_pipes.each do |batch_pipes|
+        #     mainprocess_reader, = batch_pipes
+        #     puts '-' * 80
+        #     subprocess_output = mainprocess_reader.read
+        #     unless subprocess_output.empty?
+        #       subprocess_result = JSON.parse(subprocess_output)
+        #       subprocess_logfilepath = subprocess_result['subprocess_logfilepath']
+        #       tests_passed = subprocess_result['tests_passed'] && tests_passed
+        #       puts File.open(subprocess_logfilepath, 'r').read if File.exist?(subprocess_logfilepath)
+        #     end
+        #   end
+        #   puts '=' * 80
+        # end
         tests_passed
       end
 
