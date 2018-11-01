@@ -4,7 +4,7 @@ module TestCenter
     require 'plist'
     require 'json'
     class CorrectingScanHelper
-      include TestCenter::Helper::RetryingScan::SimulatorManager
+      Parallelization = TestCenter::Helper::RetryingScan::Parallelization
 
       attr_reader :retry_total_count
 
@@ -38,12 +38,7 @@ module TestCenter
         @scan_options[:disable_concurrent_testing] = true
         @test_collector = TestCollector.new(multi_scan_options)
         @batch_count = @test_collector.test_batches.size
-        ObjectSpace.define_finalizer( self, self.class.finalize )
-        super()
-      end
-
-      def self.finalize
-        proc { cleanup_simulators }
+        @parallelizer = Parallelization.new(@batch_count) if @parallelize
       end
 
       def scan
@@ -60,7 +55,6 @@ module TestCenter
           @interstitial.batch = current_batch_index
           @interstitial.output_directory = output_directory
           @interstitial.before_all
-          @scan_options[:devices] = devices(current_batch_index)
           testrun_passed = correcting_scan(
             {
               only_testing: test_batch,
@@ -81,114 +75,28 @@ module TestCenter
         all_tests_passed
       end
 
-      def setup_pipes_for_fork
-        @pipe_endpoints = []
-        (0..@batch_count).each do |current_batch_index|
-          @pipe_endpoints << IO.pipe
-        end
-      end
-
-      def connect_subprocess_endpoint(batch_index)
-        mainprocess_reader, = @pipe_endpoints[batch_index]
-        mainprocess_reader.close # we are now in the subprocess
-
-        subprocess_output_dir = Dir.mktmpdir
-        puts "log files written to #{subprocess_output_dir}"
-        subprocess_logfilepath = File.join(subprocess_output_dir, "batchscan_#{current_batch_index}.log")
-        subprocess_logfile = File.open(subprocess_logfilepath, 'w')
-        $stdout.reopen(subprocess_logfile)
-        $stderr.reopen(subprocess_logfile)
-      end
-
-      def disconnect_subprocess_endpoints
-        # This is done from the parent process to close the pipe from its end so
-        # that its reading of the pipe doesn't block waiting for more IO on the
-        # writer.
-        # This has to be done after the fork, because we don't want the subprocess
-        # to receive its endpoint already closed.
-        @pipe_endpoints.each { |_, subprocess_writer| subprocess_writer.close }
-      end
-
-      def ensure_conflict_free_scanlogging(batch_index)
-        @scan_options[:buildlog_path] = @scan_options[:buildlog_path] + "-#{current_batch_index}"
-      end
-
-      def send_subprocess_result(batch_index, result)
-        _, subprocess_writer = @pipe_endpoints[batch_index]
-        subprocess_logfile = $stdout # Remember? We changed $stdout in :connect_subprocess_endpoint to be a File.
-
-        subprocess_output = {
-          'subprocess_logfilepath' => subprocess_logfile.path,
-          'tests_passed' => result
-        }
-        subprocess_writer.puts subprocess_output.to_json
-        subprocess_writer.flush
-        subprocess_logfile.close
-      end
-
-      def parse_subprocess_results(subprocess_index, subprocess_output)
-        subprocess_result = {
-          'tests_passed' => false
-        }
-        if subprocess_output.empty?
-          FastlaneCore::UI.error("Something went terribly wrong: no output from parallelized batch #{subprocess_index}!")
-        else
-          subprocess_result = JSON.parse(subprocess_output)
-        end
-        subprocess_result
-      end
-
-      def stream_subprocess_result_to_console(subprocess_logfilepath)
-        puts '-' * 80
-        if File.exist?(subprocess_logfilepath)
-          File.foreach(subprocess_logfilepath, 'r') do |line|
-            puts line
-          end
-        end
-      end
-
-      def wait_for_subprocesses
-        disconnect_subprocess_endpoints # to ensure no blocking on the pipe
-        FastlaneCore::Helper.show_loading_indicator("Scanning in #{@batch_count} batches")
-        Process.waitall
-        FastlaneCore::Helper.hide_loading_indicator
-      end
-
-      def handle_subprocesses_results
-        tests_passed = false
-        FastlaneCore::UI.header("Output from parallelized batch run")
-        @pipe_endpoints.each_with_index do |endpoints, index|
-          mainprocess_reader, = endpoints
-          subprocess_result = parse_subprocess_results(index, mainprocess_reader.read)
-          mainprocess_reader.close
-          stream_subprocess_result_to_console(subprocess_result['subprocess_logfilepath'])
-          tests_passed = subprocess_result['tests_passed']
-        end
-        puts '=' * 80
-        tests_passed
-      end
-
       def each_batch
         tests_passed = true
         if @parallelize
-          setup_simulators
-          setup_pipes_for_fork
+          @parallelizer.setup_simulators(@scan_options[:devices] || Array(@scan_options[:device]))
+          @parallelizer.setup_pipes_for_fork
 
           @test_collector.test_batches.each_with_index do |test_batch, current_batch_index|
             fork do
-              connect_subprocess_endpoint(current_batch_index)
-              ensure_conflict_free_scanlogging(current_batch_index)
+              @parallelizer.connect_subprocess_endpoint(current_batch_index)
+              @parallelizer.ensure_conflict_free_scanlogging(current_batch_index)
               begin
+                @scan_options[:devices] = @parallelizer.devices(current_batch_index)
                 tests_passed = yield(test_batch, current_batch_index)
               ensure
-                send_subprocess_result(current_batch_index, tests_passed)
+                @parallelizer.send_subprocess_result(current_batch_index, tests_passed)
               end
               exit(true) # last command to ensure subprocess ends quickly.
             end
           end
-          wait_for_subprocesses
-          tests_passed = handle_subprocesses_results && tests_passed
-          cleanup_simulators
+          @parallelizer.wait_for_subprocesses
+          tests_passed = @parallelizer.handle_subprocesses_results && tests_passed
+          @parallelizer.cleanup_simulators
         else
           @test_collector.test_batches.each_with_index do |test_batch, current_batch_index|
             tests_passed = yield(test_batch, current_batch_index)
