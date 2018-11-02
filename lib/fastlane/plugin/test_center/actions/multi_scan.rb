@@ -84,10 +84,11 @@ module Fastlane
         options_to_remove = %i[
           try_count
           batch_count
+          output_files
+          parallelize
           testrun_completed_block
           test_without_building
           output_types
-          output_files
         ]
         config = FastlaneCore::Configuration.create(
           Fastlane::Actions::ScanAction.available_options,

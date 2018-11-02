@@ -75,6 +75,10 @@ module TestCenter
         all_tests_passed
       end
 
+      def ensure_conflict_free_scanlogging(batch_index)
+        @scan_options[:buildlog_path] = @scan_options[:buildlog_path] + "-#{batch_index}"
+      end
+
       def each_batch
         tests_passed = true
         if @parallelize
@@ -84,8 +88,8 @@ module TestCenter
           @test_collector.test_batches.each_with_index do |test_batch, current_batch_index|
             fork do
               @parallelizer.connect_subprocess_endpoint(current_batch_index)
-              @parallelizer.ensure_conflict_free_scanlogging(current_batch_index)
               begin
+                ensure_conflict_free_scanlogging(current_batch_index)
                 @scan_options[:devices] = @parallelizer.devices(current_batch_index)
                 tests_passed = yield(test_batch, current_batch_index)
               ensure

@@ -63,7 +63,7 @@ module TestCenter
 
         def setup_pipes_for_fork
           @pipe_endpoints = []
-          (0..@batch_count).each do |current_batch_index|
+          (0...@batch_count).each do
             @pipe_endpoints << IO.pipe
           end
         end
@@ -74,7 +74,7 @@ module TestCenter
 
           subprocess_output_dir = Dir.mktmpdir
           puts "log files written to #{subprocess_output_dir}"
-          subprocess_logfilepath = File.join(subprocess_output_dir, "batchscan_#{current_batch_index}.log")
+          subprocess_logfilepath = File.join(subprocess_output_dir, "batchscan_#{batch_index}.log")
           subprocess_logfile = File.open(subprocess_logfilepath, 'w')
           $stdout.reopen(subprocess_logfile)
           $stderr.reopen(subprocess_logfile)
@@ -87,10 +87,6 @@ module TestCenter
           # This has to be done after the fork, because we don't want the subprocess
           # to receive its endpoint already closed.
           @pipe_endpoints.each { |_, subprocess_writer| subprocess_writer.close }
-        end
-
-        def ensure_conflict_free_scanlogging(batch_index)
-          @scan_options[:buildlog_path] = @scan_options[:buildlog_path] + "-#{current_batch_index}"
         end
 
         def send_subprocess_result(batch_index, result)
@@ -121,7 +117,7 @@ module TestCenter
         def stream_subprocess_result_to_console(subprocess_logfilepath)
           puts '-' * 80
           if File.exist?(subprocess_logfilepath)
-            File.foreach(subprocess_logfilepath, 'r') do |line|
+            File.foreach(subprocess_logfilepath, "r:UTF-8") do |line|
               puts line
             end
           end
@@ -146,62 +142,6 @@ module TestCenter
           end
           puts '=' * 80
           tests_passed
-        end
-      end
-
-      module SimulatorManager
-
-        def initialize
-          @simulators ||= []
-
-          if @batch_count < 1
-            raise FastlaneCore::FastlaneCrash.new({}), "batch_count (#{@batch_count}) < 1, this should never happen"
-          end
-        end
-
-        def setup_simulators
-          return unless @batch_count > 1 && @parallelize
-
-          found_simulator_devices = []
-          FastlaneCore::DeviceManager.simulators('iOS').each do |simulator|
-            simulator.delete if /-batchclone-/ =~ simulator.name
-          end
-
-          devices = @scan_options[:devices] || Array(@scan_options[:device])
-          if devices.count > 0
-            found_simulator_devices = Scan::DetectValues.detect_simulator(devices, '', '', '', nil)
-          else
-            found_simulator_devices = Scan::DetectValues.detect_simulator(devices, 'iOS', 'IPHONEOS_DEPLOYMENT_TARGET', 'iPhone 5s', nil)
-          end
-          (0...@batch_count).each do |batch_index|
-            @simulators[batch_index] ||= []
-            found_simulator_devices.each do |found_simulator_device|
-              device_for_batch = found_simulator_device.clone
-              new_name = "#{found_simulator_device.name}-batchclone-#{batch_index + 1}"
-              device_for_batch.rename(new_name)
-              @simulators[batch_index] << device_for_batch
-            end
-          end
-        end
-
-        def cleanup_simulators
-          @simulators.flatten.each(&:delete)
-          @simulators = []
-        end
-
-        def devices(batch_index)
-          if batch_index > @batch_count
-            simulator_count = [@batch_count, @simulators.count].max
-            raise "Error: impossible to request devices for batch #{batch_index}, there are only #{simulator_count} set(s) of simulators"
-          end
-
-          if @simulators.count > 0
-            @simulators[batch_index - 1].map do |simulator|
-              "#{simulator.name} (#{simulator.os_version})"
-            end
-          else
-            @scan_options[:devices] || Array(@scan_options[:device])
-          end
         end
       end
     end
